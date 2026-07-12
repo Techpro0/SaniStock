@@ -1,0 +1,21 @@
+## Build output
+bin/
+obj/
+publish/
+[Dd]ebug/
+[Rr]elease/
+*.user
+
+## Installer output
+installer/Output/
+
+## Local databases / logs
+*.db
+*.db-shm
+*.db-wal
+*.db.bak
+
+## IDE
+.vs/
+.idea/
+*.suo

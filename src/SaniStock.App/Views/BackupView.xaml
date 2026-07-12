@@ -1,0 +1,32 @@
+<UserControl x:Class="SaniStock.App.Views.BackupView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="28">
+        <StackPanel MaxWidth="640" HorizontalAlignment="Left">
+            <TextBlock Text="Backup &amp; Restore" Style="{StaticResource H1}" Margin="0,0,0,4" />
+            <TextBlock Style="{StaticResource Muted}" Margin="0,0,0,18"
+                       Text="The entire database is a single local file. Back it up regularly to a safe location (USB drive, network share)." />
+
+            <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock Text="Database file" Style="{StaticResource FieldLabel}" />
+                    <TextBlock Text="{Binding DbPath}" FontFamily="Consolas" Margin="0,0,0,14" />
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="💾  Save Backup" Command="{Binding BackupCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,10,0" />
+                        <Button Content="Restore Backup" Command="{Binding RestoreCommand}" Style="{StaticResource SecondaryButton}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="Fix Stock Totals" Style="{StaticResource H2}" />
+                    <TextBlock Style="{StaticResource Muted}" Margin="0,0,0,12"
+                               Text="If any stock number ever looks wrong, press this to recalculate all totals from the saved history." />
+                    <Button Content="Fix Stock Totals" Command="{Binding ReconcileCommand}"
+                            Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </Grid>
+</UserControl>

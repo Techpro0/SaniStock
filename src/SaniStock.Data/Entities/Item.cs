@@ -1,0 +1,11 @@
+namespace SaniStock.Data.Entities;
+
+/// <summary>A finished-ware product (e.g. a wash basin model).</summary>
+public class Item
+{
+    public int Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string UnitOfMeasure { get; set; } = "PCS";
+    public bool IsActive { get; set; } = true;
+}

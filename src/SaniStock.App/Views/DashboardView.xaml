@@ -1,0 +1,93 @@
+<UserControl x:Class="SaniStock.App.Views.DashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="28">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,18">
+            <StackPanel DockPanel.Dock="Left">
+                <TextBlock Text="Home" Style="{StaticResource H1}" />
+                <TextBlock Text="{Binding Today}" Style="{StaticResource Muted}" />
+            </StackPanel>
+            <Button Content="⟳ Refresh" Command="{Binding LoadCommand}"
+                    Style="{StaticResource SecondaryButton}" DockPanel.Dock="Right"
+                    HorizontalAlignment="Right" VerticalAlignment="Top" />
+        </DockPanel>
+
+        <!-- Stat cards -->
+        <UniformGrid Grid.Row="1" Rows="1" Margin="0,0,0,18">
+            <Border Style="{StaticResource Card}" Margin="0,0,8,0">
+                <StackPanel>
+                    <TextBlock Text="Made Today" Style="{StaticResource Muted}" />
+                    <TextBlock Text="{Binding TodayProduction, StringFormat={}{0:0.###}}" FontSize="30" FontWeight="Bold" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource Card}" Margin="8,0">
+                <StackPanel>
+                    <TextBlock Text="Sent Today" Style="{StaticResource Muted}" />
+                    <TextBlock Text="{Binding TodayDispatches}" FontSize="30" FontWeight="Bold" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource Card}" Margin="8,0">
+                <StackPanel>
+                    <TextBlock Text="Need to Make" Style="{StaticResource Muted}" />
+                    <TextBlock Text="{Binding ShortfallCount}" FontSize="30" FontWeight="Bold"
+                               Foreground="{StaticResource DangerBrush}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource Card}" Margin="8,0">
+                <StackPanel>
+                    <TextBlock Text="Low Stock" Style="{StaticResource Muted}" />
+                    <TextBlock Text="{Binding LowStockCount}" FontSize="30" FontWeight="Bold" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource Card}" Margin="8,0,0,0">
+                <StackPanel>
+                    <TextBlock Text="Open Orders" Style="{StaticResource Muted}" />
+                    <TextBlock Text="{Binding OpenOrders}" FontSize="30" FontWeight="Bold" />
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <!-- Two lists -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Style="{StaticResource Card}" Margin="0,0,9,0">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Make These Next" Style="{StaticResource H2}" />
+                    <DataGrid ItemsSource="{Binding TopShortfalls}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Item" Binding="{Binding ItemName}" Width="*" />
+                            <DataGridTextColumn Header="Grade" Binding="{Binding Grade}" Width="Auto" />
+                            <DataGridTextColumn Header="Colour" Binding="{Binding Colour}" Width="Auto" />
+                            <DataGridTextColumn Header="Make Qty" Binding="{Binding Shortfall, StringFormat={}{0:0.###}}" Width="Auto" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Border>
+
+            <Border Grid.Column="1" Style="{StaticResource Card}" Margin="9,0,0,0">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Low Stock" Style="{StaticResource H2}" />
+                    <DataGrid ItemsSource="{Binding LowStock}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Item" Binding="{Binding ItemName}" Width="*" />
+                            <DataGridTextColumn Header="Grade" Binding="{Binding Grade}" Width="Auto" />
+                            <DataGridTextColumn Header="Colour" Binding="{Binding Colour}" Width="Auto" />
+                            <DataGridTextColumn Header="In Stock" Binding="{Binding OnHand, StringFormat={}{0:0.###}}" Width="Auto" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

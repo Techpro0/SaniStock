@@ -1,0 +1,96 @@
+<Window x:Class="SaniStock.App.Views.ShellWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SaniStock" Height="760" Width="1200"
+        WindowStartupLocation="CenterScreen" Icon="/Assets/app.ico"
+        Background="{StaticResource CanvasBrush}">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="230" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Sidebar -->
+        <Border Grid.Column="0">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="{StaticResource BrandColor}" Offset="0" />
+                    <GradientStop Color="{StaticResource BrandDarkColor}" Offset="1" />
+                </LinearGradientBrush>
+            </Border.Background>
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Margin="20,22,20,18">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🏺" FontSize="26" />
+                        <TextBlock Text="SaniStock" FontSize="22" FontWeight="Bold"
+                                   Foreground="White" Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="Production &amp; Stock" Foreground="#C7D8F0" FontSize="12" Margin="0,2,0,0" />
+                </StackPanel>
+
+                <!-- User + logout -->
+                <Border DockPanel.Dock="Bottom" Margin="14,10,14,16" Padding="12"
+                        Background="#1FFFFFFF" CornerRadius="8">
+                    <StackPanel>
+                        <TextBlock Text="{Binding UserName}" Foreground="White" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding UserRole}" Foreground="#C7D8F0" FontSize="11" Margin="0,0,0,8" />
+                        <Button Content="Sign out" Command="{Binding LogoutCommand}"
+                                Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Padding="12,5" />
+                    </StackPanel>
+                </Border>
+
+                <ListBox ItemsSource="{Binding NavItems}" SelectedItem="{Binding Selected}"
+                         Background="Transparent" BorderThickness="0" Margin="10,6,10,0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Margin" Value="0,2" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border x:Name="bd" CornerRadius="8" Padding="12,10" Background="Transparent">
+                                            <ContentPresenter />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="bd" Property="Background" Value="#22FFFFFF" />
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="bd" Property="Background" Value="White" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Icon}" FontSize="16" Width="26" />
+                                <TextBlock Text="{Binding Title}" FontSize="14" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="White" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSelected,
+                                                    RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource BrandDarkBrush}" />
+                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
+        <!-- Content host -->
+        <ContentControl Grid.Column="1" Content="{Binding Current}" Margin="0" />
+    </Grid>
+</Window>

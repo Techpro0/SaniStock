@@ -1,0 +1,140 @@
+<UserControl x:Class="SaniStock.App.Views.ProductionView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="28">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="Add Stock" Style="{StaticResource H1}" />
+            <TextBlock Text="Record new goods made or received. This adds to your stock." Style="{StaticResource Muted}" />
+        </StackPanel>
+
+        <TabControl Grid.Row="1" Background="Transparent" BorderThickness="0">
+            <!-- Finished production -->
+            <TabItem Header="Finished Goods">
+                <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="340" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Style="{StaticResource Card}" VerticalAlignment="Top" Margin="0,0,12,0">
+                        <StackPanel>
+                            <TextBlock Text="Add Finished Goods" Style="{StaticResource H2}" />
+                            <TextBlock Text="Date" Style="{StaticResource FieldLabel}" />
+                            <DatePicker SelectedDate="{Binding ProdDate}" Margin="0,0,0,10" />
+                            <TextBlock Text="Item" Style="{StaticResource FieldLabel}" />
+                            <ComboBox ItemsSource="{Binding Items}" SelectedItem="{Binding ProdItem}"
+                                      DisplayMemberPath="Name" Margin="0,0,0,10" />
+                            <TextBlock Text="Grade" Style="{StaticResource FieldLabel}" />
+                            <ComboBox ItemsSource="{Binding Grades}" SelectedItem="{Binding ProdGrade}"
+                                      DisplayMemberPath="Name" Margin="0,0,0,10" />
+                            <TextBlock Text="Colour" Style="{StaticResource FieldLabel}" />
+                            <ComboBox ItemsSource="{Binding Colours}" SelectedItem="{Binding ProdColour}"
+                                      DisplayMemberPath="Name" Margin="0,0,0,10" />
+                            <TextBlock Text="How Many" Style="{StaticResource FieldLabel}" />
+                            <TextBox Text="{Binding ProdQty, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
+                            <TextBlock Text="Notes (optional)" Style="{StaticResource FieldLabel}" />
+                            <TextBox Text="{Binding ProdRemarks, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,14" />
+                            <Button Content="💾  Save" Command="{Binding PostProductionCommand}"
+                                    Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Width="140" Height="42" FontSize="15" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1" Style="{StaticResource Card}">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Text="Recently Added" Style="{StaticResource H2}" />
+                            <DataGrid ItemsSource="{Binding History}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Date" Binding="{Binding Date, StringFormat=dd-MMM-yyyy}" Width="Auto" />
+                                    <DataGridTextColumn Header="Item" Binding="{Binding Item}" Width="*" />
+                                    <DataGridTextColumn Header="Grade" Binding="{Binding Grade}" Width="Auto" />
+                                    <DataGridTextColumn Header="Colour" Binding="{Binding Colour}" Width="Auto" />
+                                    <DataGridTextColumn Header="Qty" Binding="{Binding Quantity, StringFormat={}{0:0.###}}" Width="Auto" />
+                                    <DataGridTemplateColumn Header="" Width="90">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Button Content="Undo" Padding="8,3" FontSize="11"
+                                                        Style="{StaticResource SecondaryButton}"
+                                                        Command="{Binding DataContext.ReverseProductionCommand,
+                                                            RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- Accessory receipt -->
+            <TabItem Header="Accessories In">
+                <Border Style="{StaticResource Card}" Width="360" HorizontalAlignment="Left"
+                        VerticalAlignment="Top" Margin="0,12,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Add Accessories to Stock" Style="{StaticResource H2}" />
+                        <TextBlock Text="Date" Style="{StaticResource FieldLabel}" />
+                        <DatePicker SelectedDate="{Binding AccDate}" Margin="0,0,0,10" />
+                        <TextBlock Text="Accessory" Style="{StaticResource FieldLabel}" />
+                        <ComboBox ItemsSource="{Binding Accessories}" SelectedItem="{Binding AccItem}"
+                                  DisplayMemberPath="Name" Margin="0,0,0,10" />
+                        <TextBlock Text="How Many" Style="{StaticResource FieldLabel}" />
+                        <TextBox Text="{Binding AccQty, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
+                        <TextBlock Text="Notes (optional)" Style="{StaticResource FieldLabel}" />
+                        <TextBox Text="{Binding AccRemarks, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,14" />
+                        <Button Content="💾  Save" Command="{Binding PostAccessoryCommand}"
+                                Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Width="140" Height="42" FontSize="15" />
+                    </StackPanel>
+                </Border>
+            </TabItem>
+
+            <!-- Green ware -->
+            <TabItem Header="Green Pieces">
+                <Border Style="{StaticResource Card}" Width="360" HorizontalAlignment="Left"
+                        VerticalAlignment="Top" Margin="0,12,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Green (Unfired) Pieces — In or Out" Style="{StaticResource H2}" />
+                        <TextBlock Text="Date" Style="{StaticResource FieldLabel}" />
+                        <DatePicker SelectedDate="{Binding GreenDate}" Margin="0,0,0,10" />
+                        <TextBlock Text="Item" Style="{StaticResource FieldLabel}" />
+                        <ComboBox ItemsSource="{Binding Items}" SelectedItem="{Binding GreenItem}"
+                                  DisplayMemberPath="Name" Margin="0,0,0,10" />
+                        <TextBlock Text="Colour" Style="{StaticResource FieldLabel}" />
+                        <ComboBox ItemsSource="{Binding Colours}" SelectedItem="{Binding GreenColour}"
+                                  DisplayMemberPath="Name" Margin="0,0,0,10" />
+                        <CheckBox Content="Going OUT  (leave unticked if coming IN)" IsChecked="{Binding GreenIsIssue}" Margin="0,0,0,10" />
+                        <TextBlock Text="How Many" Style="{StaticResource FieldLabel}" />
+                        <TextBox Text="{Binding GreenQty, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,14" />
+                        <Button Content="💾  Save" Command="{Binding PostGreenCommand}"
+                                Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Width="140" Height="42" FontSize="15" />
+                    </StackPanel>
+                </Border>
+            </TabItem>
+
+            <!-- Raw material -->
+            <TabItem Header="Raw Material">
+                <Border Style="{StaticResource Card}" Width="360" HorizontalAlignment="Left"
+                        VerticalAlignment="Top" Margin="0,12,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Raw Material — In or Out" Style="{StaticResource H2}" />
+                        <TextBlock Text="Date" Style="{StaticResource FieldLabel}" />
+                        <DatePicker SelectedDate="{Binding RawDate}" Margin="0,0,0,10" />
+                        <TextBlock Text="Raw Material" Style="{StaticResource FieldLabel}" />
+                        <ComboBox ItemsSource="{Binding RawMaterials}" SelectedItem="{Binding RawItem}"
+                                  DisplayMemberPath="Name" Margin="0,0,0,10" />
+                        <CheckBox Content="Going OUT  (leave unticked if coming IN)" IsChecked="{Binding RawIsIssue}" Margin="0,0,0,10" />
+                        <TextBlock Text="How Many" Style="{StaticResource FieldLabel}" />
+                        <TextBox Text="{Binding RawQty, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,14" />
+                        <Button Content="💾  Save" Command="{Binding PostRawCommand}"
+                                Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Width="140" Height="42" FontSize="15" />
+                    </StackPanel>
+                </Border>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>
