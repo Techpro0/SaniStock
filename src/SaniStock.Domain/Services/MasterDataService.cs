@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using SaniStock.Data;
 using SaniStock.Data.Entities;
 
@@ -17,9 +18,25 @@ public class MasterDataService
         item.Name = Require(item.Name, "Item name");
         if (_db.Items.Any(x => x.Code == item.Code && x.Id != item.Id))
             throw new DomainException($"Item code '{item.Code}' already exists.");
+        // The UI uses a 0-id "(None)" sentinel for "no product type"; store it as null.
+        if (item.ProductTypeId is 0) item.ProductTypeId = null;
+        if (item.ProductTypeId is int ptId && !_db.ProductTypes.Any(p => p.Id == ptId))
+            throw new DomainException("Selected product type does not exist.");
         Upsert(_db.Items, item);
         _db.SaveChanges();
         return item;
+    }
+
+    // ---- ProductType ----
+    public ProductType SaveProductType(ProductType p)
+    {
+        p.Code = Require(p.Code, "Product type code");
+        p.Name = Require(p.Name, "Product type name");
+        if (_db.ProductTypes.Any(x => x.Code == p.Code && x.Id != p.Id))
+            throw new DomainException($"Product type code '{p.Code}' already exists.");
+        Upsert(_db.ProductTypes, p);
+        _db.SaveChanges();
+        return p;
     }
 
     // ---- Accessory ----
@@ -74,6 +91,50 @@ public class MasterDataService
         Upsert(_db.RawMaterials, r);
         _db.SaveChanges();
         return r;
+    }
+
+    // ---- Item accessory defaults (bundling recipe) ----
+
+    /// <summary>The active default-accessory rows for an item, accessory name/code included.</summary>
+    public List<ItemAccessoryDefault> GetItemAccessoryDefaults(int itemId) =>
+        _db.ItemAccessoryDefaults
+            .Include(x => x.Accessory)
+            .Where(x => x.ItemId == itemId)
+            .OrderBy(x => x.Accessory!.Name)
+            .ToList();
+
+    /// <summary>
+    /// Replaces an item's default-accessory recipe with the supplied set. Each pair must have a
+    /// positive quantity and reference an existing accessory; duplicates are rejected. Passing an
+    /// empty set clears the recipe (equivalent to "don't include accessories by default").
+    /// </summary>
+    public void SetItemAccessoryDefaults(int itemId, IReadOnlyList<(int AccessoryId, decimal QtyPerUnit)> defaults)
+    {
+        if (!_db.Items.Any(i => i.Id == itemId))
+            throw new DomainException("Item does not exist.");
+
+        var seen = new HashSet<int>();
+        foreach (var (accessoryId, qty) in defaults)
+        {
+            if (!seen.Add(accessoryId))
+                throw new DomainException("The same accessory is listed twice in the defaults.");
+            if (qty <= 0)
+                throw new DomainException("Quantity per unit must be greater than zero.");
+            if (!_db.Accessories.Any(a => a.Id == accessoryId))
+                throw new DomainException("A selected accessory does not exist.");
+        }
+
+        var existing = _db.ItemAccessoryDefaults.Where(x => x.ItemId == itemId).ToList();
+        _db.ItemAccessoryDefaults.RemoveRange(existing);
+        foreach (var (accessoryId, qty) in defaults)
+            _db.ItemAccessoryDefaults.Add(new ItemAccessoryDefault
+            {
+                ItemId = itemId,
+                AccessoryId = accessoryId,
+                QtyPerUnit = qty,
+                IsActive = true
+            });
+        _db.SaveChanges();
     }
 
     private static string Require(string? value, string field)

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SaniStock.Data;
 
@@ -10,9 +11,11 @@ using SaniStock.Data;
 namespace SaniStock.Data.Migrations
 {
     [DbContext(typeof(SaniStockDbContext))]
-    partial class SaniStockDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260718101716_AddProductType")]
+    partial class AddProductType
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.11");
@@ -421,34 +424,6 @@ namespace SaniStock.Data.Migrations
                     b.ToTable("Items");
                 });
 
-            modelBuilder.Entity("SaniStock.Data.Entities.ItemAccessoryDefault", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("AccessoryId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("ItemId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<double>("QtyPerUnit")
-                        .HasColumnType("REAL");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AccessoryId");
-
-                    b.HasIndex("ItemId", "AccessoryId")
-                        .IsUnique();
-
-                    b.ToTable("ItemAccessoryDefaults");
-                });
-
             modelBuilder.Entity("SaniStock.Data.Entities.Order", b =>
                 {
                     b.Property<int>("Id")
@@ -509,16 +484,11 @@ namespace SaniStock.Data.Migrations
                     b.Property<double>("QuantityReserved")
                         .HasColumnType("REAL");
 
-                    b.Property<int?>("SourceOrderLineId")
-                        .HasColumnType("INTEGER");
-
                     b.HasKey("Id");
 
                     b.HasIndex("AccessoryId");
 
                     b.HasIndex("OrderId");
-
-                    b.HasIndex("SourceOrderLineId");
 
                     b.ToTable("OrderAccessoryLines");
                 });
@@ -991,25 +961,6 @@ namespace SaniStock.Data.Migrations
                     b.Navigation("ProductType");
                 });
 
-            modelBuilder.Entity("SaniStock.Data.Entities.ItemAccessoryDefault", b =>
-                {
-                    b.HasOne("SaniStock.Data.Entities.Accessory", "Accessory")
-                        .WithMany()
-                        .HasForeignKey("AccessoryId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("SaniStock.Data.Entities.Item", "Item")
-                        .WithMany()
-                        .HasForeignKey("ItemId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Accessory");
-
-                    b.Navigation("Item");
-                });
-
             modelBuilder.Entity("SaniStock.Data.Entities.Order", b =>
                 {
                     b.HasOne("SaniStock.Data.Entities.Party", "Party")
@@ -1035,16 +986,9 @@ namespace SaniStock.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("SaniStock.Data.Entities.OrderLine", "SourceOrderLine")
-                        .WithMany()
-                        .HasForeignKey("SourceOrderLineId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.Navigation("Accessory");
 
                     b.Navigation("Order");
-
-                    b.Navigation("SourceOrderLine");
                 });
 
             modelBuilder.Entity("SaniStock.Data.Entities.OrderLine", b =>

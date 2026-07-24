@@ -3,10 +3,15 @@ namespace SaniStock.Domain.Models;
 /// <summary>Input to post a production entry.</summary>
 public record ProductionInput(DateTime Date, int ItemId, int GradeId, int ColourId, decimal Quantity, string? Remarks);
 
-/// <summary>One finished-ware line requested when booking an order.</summary>
-public record OrderLineInput(int ItemId, int GradeId, int ColourId, decimal Quantity);
+/// <summary>
+/// One finished-ware line requested when booking an order. The item's active accessory
+/// defaults are auto-reserved alongside it, except any accessory whose id appears in
+/// <see cref="ExcludedAccessoryIds"/> (the per-line include/exclude choice).
+/// </summary>
+public record OrderLineInput(int ItemId, int GradeId, int ColourId, decimal Quantity,
+    IReadOnlyList<int>? ExcludedAccessoryIds = null);
 
-/// <summary>One accessory line requested when booking an order.</summary>
+/// <summary>One manually-added standalone accessory line requested when booking an order.</summary>
 public record OrderAccessoryLineInput(int AccessoryId, decimal Quantity);
 
 /// <summary>Input to book a new order.</summary>

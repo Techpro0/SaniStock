@@ -26,6 +26,38 @@
         </StackPanel>
 
         <TabControl Grid.Row="1" Background="Transparent" BorderThickness="0">
+            <!-- Product Types (sits above Items in the hierarchy) -->
+            <TabItem Header="Product Type" DataContext="{Binding ProductTypesTab}">
+                <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="320" />
+                    </Grid.ColumnDefinitions>
+                    <DataGrid ItemsSource="{Binding Items}" Margin="0,0,12,0">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="Auto" />
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
+                            <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive}" Width="Auto" />
+                            <DataGridTemplateColumn Width="70" CellTemplate="{StaticResource EditCell}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Border Grid.Column="1" Style="{StaticResource Card}" VerticalAlignment="Top">
+                        <StackPanel>
+                            <TextBlock Text="Edit Product Type" Style="{StaticResource H2}" />
+                            <TextBlock Text="Code" Style="{StaticResource FieldLabel}" />
+                            <TextBox Text="{Binding Editing.Code, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
+                            <TextBlock Text="Name" Style="{StaticResource FieldLabel}" />
+                            <TextBox Text="{Binding Editing.Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
+                            <CheckBox Content="Active" IsChecked="{Binding Editing.IsActive}" />
+                            <StackPanel Style="{StaticResource FormButtons}">
+                                <Button Content="New" Command="{Binding NewCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" />
+                                <Button Content="Save" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButton}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
             <!-- Items -->
             <TabItem Header="Items" DataContext="{Binding ItemsTab}">
                 <Grid Margin="0,12,0,0">
@@ -37,6 +69,7 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="Auto" />
                             <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
+                            <DataGridTextColumn Header="Type" Binding="{Binding ProductType.Name}" Width="Auto" />
                             <DataGridTextColumn Header="UoM" Binding="{Binding UnitOfMeasure}" Width="Auto" />
                             <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive}" Width="Auto" />
                             <DataGridTemplateColumn Width="70" CellTemplate="{StaticResource EditCell}" />
@@ -49,9 +82,52 @@
                             <TextBox Text="{Binding Editing.Code, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
                             <TextBlock Text="Name" Style="{StaticResource FieldLabel}" />
                             <TextBox Text="{Binding Editing.Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
+                            <TextBlock Text="Product Type" Style="{StaticResource FieldLabel}" />
+                            <ComboBox Margin="0,0,0,10"
+                                      ItemsSource="{Binding DataContext.ProductTypeOptions, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                      SelectedValue="{Binding Editing.ProductTypeId}" SelectedValuePath="Id"
+                                      DisplayMemberPath="Name" />
                             <TextBlock Text="Unit (PCS, KG…)" Style="{StaticResource FieldLabel}" />
                             <TextBox Text="{Binding Editing.UnitOfMeasure, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
                             <CheckBox Content="Active" IsChecked="{Binding Editing.IsActive}" />
+
+                            <!-- Default accessories (bundling recipe). Bound to the parent view model. -->
+                            <CheckBox Content="Include Accessories by default" Margin="0,14,0,0"
+                                      IsChecked="{Binding DataContext.IncludeAccessoriesByDefault, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            <Border Margin="0,8,0,0" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6"
+                                    Visibility="{Binding DataContext.IncludeAccessoriesByDefault, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
+                                <DockPanel>
+                                    <Grid DockPanel.Dock="Top" Background="#EEF2F7">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="70" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="1" Text="Accessory" FontWeight="SemiBold" FontSize="11" Padding="4,5" />
+                                        <TextBlock Grid.Column="2" Text="Qty/Unit" FontWeight="SemiBold" FontSize="11" Padding="4,5" />
+                                    </Grid>
+                                    <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto">
+                                        <ItemsControl ItemsSource="{Binding DataContext.AccessoryDefaults, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,2">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="70" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="4,0" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" Padding="4,0" />
+                                                        <TextBox Grid.Column="2" Text="{Binding QtyPerUnit, UpdateSourceTrigger=PropertyChanged}"
+                                                                 IsEnabled="{Binding IsSelected}" Margin="2,0" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </DockPanel>
+                            </Border>
+
                             <StackPanel Style="{StaticResource FormButtons}">
                                 <Button Content="New" Command="{Binding NewCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" />
                                 <Button Content="Save" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButton}" />

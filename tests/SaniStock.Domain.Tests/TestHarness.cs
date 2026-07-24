@@ -27,6 +27,7 @@ public sealed class TestHarness : IDisposable
     public ReportService Reports { get; }
     public GreenPieceService Green { get; }
     public RawMaterialService Raw { get; }
+    public MasterDataService Master { get; }
 
     // Seeded ids for convenience.
     public int ItemA { get; }
@@ -36,6 +37,7 @@ public sealed class TestHarness : IDisposable
     public int White { get; }
     public int Blue { get; }
     public int Acc1 { get; }
+    public int Acc2 { get; }
     public int PartyX { get; }
     public int PartyY { get; }
     public int RawClay { get; }
@@ -61,6 +63,7 @@ public sealed class TestHarness : IDisposable
         Reports = new ReportService(Db);
         Green = new GreenPieceService(Db, Stock, User);
         Raw = new RawMaterialService(Db, Stock, User);
+        Master = new MasterDataService(Db);
 
         var itemA = Add(new Item { Code = "WB-100", Name = "Wash Basin 100" });
         var itemB = Add(new Item { Code = "WC-200", Name = "Water Closet 200" });
@@ -69,6 +72,7 @@ public sealed class TestHarness : IDisposable
         var white = Add(new Colour { Name = "White" });
         var blue = Add(new Colour { Name = "Ivory" });
         var acc = Add(new Accessory { Code = "AC-1", Name = "Pillar Cock" });
+        var acc2 = Add(new Accessory { Code = "AC-2", Name = "Seat Cover" });
         var px = Add(new Party { Name = "Acme Traders" });
         var py = Add(new Party { Name = "Best Ceramics" });
         var clay = Add(new RawMaterial { Name = "Ball Clay", UnitOfMeasure = "KG" });
@@ -77,7 +81,7 @@ public sealed class TestHarness : IDisposable
         ItemA = itemA.Id; ItemB = itemB.Id;
         Grade1 = g1.Id; Grade2 = g2.Id;
         White = white.Id; Blue = blue.Id;
-        Acc1 = acc.Id;
+        Acc1 = acc.Id; Acc2 = acc2.Id;
         PartyX = px.Id; PartyY = py.Id;
         RawClay = clay.Id;
     }

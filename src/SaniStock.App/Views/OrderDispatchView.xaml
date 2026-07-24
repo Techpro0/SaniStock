@@ -83,22 +83,50 @@
                                 <ItemsControl ItemsSource="{Binding Lines}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Grid Height="40">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="90" />
-                                                    <ColumnDefinition Width="100" />
-                                                    <ColumnDefinition Width="100" />
-                                                    <ColumnDefinition Width="150" />
-                                                </Grid.ColumnDefinitions>
-                                                <Border Grid.ColumnSpan="5" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" />
-                                                <TextBlock Grid.Column="0" Text="{Binding Description}" VerticalAlignment="Center" Padding="10,0" />
-                                                <TextBlock Grid.Column="1" Text="{Binding Ordered, StringFormat={}{0:0.###}}" VerticalAlignment="Center" Padding="6,0" />
-                                                <TextBlock Grid.Column="2" Text="{Binding Dispatched, StringFormat={}{0:0.###}}" VerticalAlignment="Center" Padding="6,0" />
-                                                <TextBlock Grid.Column="3" Text="{Binding Pending, StringFormat={}{0:0.###}}" VerticalAlignment="Center" Padding="6,0" />
-                                                <TextBox Grid.Column="4" Text="{Binding DispatchQty, UpdateSourceTrigger=PropertyChanged}"
-                                                         Margin="6,5" VerticalAlignment="Center" />
-                                            </Grid>
+                                            <StackPanel>
+                                                <!-- Parent item row -->
+                                                <Grid Height="40">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="90" />
+                                                        <ColumnDefinition Width="100" />
+                                                        <ColumnDefinition Width="100" />
+                                                        <ColumnDefinition Width="150" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Grid.ColumnSpan="5" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" />
+                                                    <TextBlock Grid.Column="0" Text="{Binding Description}" FontWeight="SemiBold" VerticalAlignment="Center" Padding="10,0" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding Ordered, StringFormat={}{0:0.###}}" VerticalAlignment="Center" Padding="6,0" />
+                                                    <TextBlock Grid.Column="2" Text="{Binding Dispatched, StringFormat={}{0:0.###}}" VerticalAlignment="Center" Padding="6,0" />
+                                                    <TextBlock Grid.Column="3" Text="{Binding Pending, StringFormat={}{0:0.###}}" VerticalAlignment="Center" Padding="6,0" />
+                                                    <TextBox Grid.Column="4" Text="{Binding DispatchQty, UpdateSourceTrigger=PropertyChanged}"
+                                                             Margin="6,5" VerticalAlignment="Center" />
+                                                </Grid>
+                                                <!-- Bundled accessories for this item line -->
+                                                <ItemsControl ItemsSource="{Binding Accessories}"
+                                                              Visibility="{Binding HasAccessories, Converter={StaticResource BoolToVis}}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid Height="34" Background="#F7FAFC">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="90" />
+                                                                    <ColumnDefinition Width="100" />
+                                                                    <ColumnDefinition Width="100" />
+                                                                    <ColumnDefinition Width="150" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <Border Grid.ColumnSpan="5" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" />
+                                                                <TextBlock Grid.Column="0" Text="{Binding Description}" VerticalAlignment="Center" Padding="30,0,0,0"
+                                                                           Foreground="{StaticResource MutedTextBrush}" />
+                                                                <TextBlock Grid.Column="1" Text="{Binding Ordered, StringFormat={}{0:0.###}}" VerticalAlignment="Center" Padding="6,0" />
+                                                                <TextBlock Grid.Column="2" Text="{Binding Dispatched, StringFormat={}{0:0.###}}" VerticalAlignment="Center" Padding="6,0" />
+                                                                <TextBlock Grid.Column="3" Text="{Binding Pending, StringFormat={}{0:0.###}}" VerticalAlignment="Center" Padding="6,0" />
+                                                                <TextBox Grid.Column="4" Text="{Binding DispatchQty, UpdateSourceTrigger=PropertyChanged}"
+                                                                         Margin="6,4" VerticalAlignment="Center" />
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>

@@ -76,7 +76,7 @@ public partial class ReportsViewModel : ViewModelBase
     [RelayCommand] private void ProductionPdf() => Pdf("Production", p => PdfReports.SaveProduction(ProductionRows.ToList(), p, FromDate, ToDate));
     [RelayCommand] private void ProductionExcel() => Excel("Production", p => ExcelExporter.Save(ProductionRows.ToList(), p, "Production"));
     [RelayCommand] private void OrdersPdf() => Pdf("Orders", p => PdfReports.SaveOrders(OrderRows.ToList(), p, FromDate, ToDate));
-    [RelayCommand] private void OrdersExcel() => Excel("Orders", p => ExcelExporter.Save(OrderRows.ToList(), p, "Orders"));
+    [RelayCommand] private void OrdersExcel() => Excel("Orders", p => ExcelReports.SaveOrders(OrderRows.ToList(), p, "Orders"));
 
     private void Pdf(string name, Action<string> save)
     {

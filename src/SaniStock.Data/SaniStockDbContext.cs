@@ -11,9 +11,11 @@ public class SaniStockDbContext : DbContext
 
     // Master data
     public DbSet<Item> Items => Set<Item>();
+    public DbSet<ProductType> ProductTypes => Set<ProductType>();
     public DbSet<Grade> Grades => Set<Grade>();
     public DbSet<Colour> Colours => Set<Colour>();
     public DbSet<Accessory> Accessories => Set<Accessory>();
+    public DbSet<ItemAccessoryDefault> ItemAccessoryDefaults => Set<ItemAccessoryDefault>();
     public DbSet<Party> Parties => Set<Party>();
     public DbSet<RawMaterial> RawMaterials => Set<RawMaterial>();
 
@@ -49,6 +51,7 @@ public class SaniStockDbContext : DbContext
     {
         // Unique business keys
         b.Entity<Item>().HasIndex(x => x.Code).IsUnique();
+        b.Entity<ProductType>().HasIndex(x => x.Code).IsUnique();
         b.Entity<Accessory>().HasIndex(x => x.Code).IsUnique();
         b.Entity<Grade>().HasIndex(x => x.Name).IsUnique();
         b.Entity<Colour>().HasIndex(x => x.Name).IsUnique();
@@ -96,6 +99,30 @@ public class SaniStockDbContext : DbContext
             .WithMany()
             .HasForeignKey(o => o.PartyId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // An item's product type is optional; clearing/deleting the type leaves the item intact.
+        b.Entity<Item>()
+            .HasOne(i => i.ProductType)
+            .WithMany()
+            .HasForeignKey(i => i.ProductTypeId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // One default-accessory recipe row per item+accessory pair.
+        b.Entity<ItemAccessoryDefault>()
+            .HasIndex(x => new { x.ItemId, x.AccessoryId }).IsUnique();
+        b.Entity<ItemAccessoryDefault>()
+            .HasOne(x => x.Item).WithMany().HasForeignKey(x => x.ItemId)
+            .OnDelete(DeleteBehavior.Cascade);
+        b.Entity<ItemAccessoryDefault>()
+            .HasOne(x => x.Accessory).WithMany().HasForeignKey(x => x.AccessoryId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Link an auto-attached accessory line back to its parent item line. Order already
+        // cascade-deletes both collections, so this extra edge must NOT cascade (SQLite would
+        // otherwise reject the multiple-cascade-path); it is purely a reference for grouping.
+        b.Entity<OrderAccessoryLine>()
+            .HasOne(x => x.SourceOrderLine).WithMany().HasForeignKey(x => x.SourceOrderLineId)
+            .OnDelete(DeleteBehavior.NoAction);
 
         base.OnModelCreating(b);
     }

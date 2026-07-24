@@ -48,9 +48,12 @@ public class OrderService
             CreatedAt = DateTime.Now
         };
 
+        // Keep item OrderLines index-aligned with input.Lines so we can resolve each line's
+        // per-line accessory exclusions after ids are assigned.
+        var orderLines = new List<OrderLine>();
         foreach (var l in input.Lines)
         {
-            order.Lines.Add(new OrderLine
+            var ol = new OrderLine
             {
                 ItemId = l.ItemId,
                 GradeId = l.GradeId,
@@ -58,8 +61,11 @@ public class OrderService
                 QuantityOrdered = l.Quantity,
                 QuantityDispatched = 0,
                 QuantityReserved = l.Quantity
-            });
+            };
+            order.Lines.Add(ol);
+            orderLines.Add(ol);
         }
+        // Manually-added standalone accessory lines (not tied to any item line).
         foreach (var a in input.AccessoryLines)
         {
             order.AccessoryLines.Add(new OrderAccessoryLine
@@ -72,7 +78,38 @@ public class OrderService
         }
 
         _db.Orders.Add(order);
-        _db.SaveChanges(); // assign ids
+        _db.SaveChanges(); // assign order + item-line ids
+
+        // Auto-attach each item line's default accessories (recipe × ordered qty), minus any
+        // the caller excluded for that line. These reserve stock exactly like standalone ones.
+        for (int i = 0; i < input.Lines.Count; i++)
+        {
+            var lineInput = input.Lines[i];
+            var parentLine = orderLines[i];
+            var excluded = lineInput.ExcludedAccessoryIds is { Count: > 0 }
+                ? new HashSet<int>(lineInput.ExcludedAccessoryIds)
+                : null;
+
+            var defaults = _db.ItemAccessoryDefaults
+                .Where(d => d.ItemId == lineInput.ItemId && d.IsActive)
+                .Select(d => new { d.AccessoryId, d.QtyPerUnit })
+                .ToList();
+
+            foreach (var d in defaults)
+            {
+                if (excluded != null && excluded.Contains(d.AccessoryId)) continue;
+                var qty = d.QtyPerUnit * lineInput.Quantity;
+                if (qty <= 0) continue;
+                order.AccessoryLines.Add(new OrderAccessoryLine
+                {
+                    AccessoryId = d.AccessoryId,
+                    SourceOrderLineId = parentLine.Id,
+                    QuantityOrdered = qty,
+                    QuantityDispatched = 0,
+                    QuantityReserved = qty
+                });
+            }
+        }
 
         foreach (var l in order.Lines)
         {

@@ -65,23 +65,54 @@
                         <TextBox Grid.Column="3" Text="{Binding NewQty, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,6,0" />
                         <Button Grid.Column="4" Content="Add" Command="{Binding AddLineCommand}" Style="{StaticResource SecondaryButton}" />
                     </Grid>
-                    <DataGrid ItemsSource="{Binding Lines}">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Item" Binding="{Binding Item}" Width="*" />
-                            <DataGridTextColumn Header="Grade" Binding="{Binding Grade}" Width="Auto" />
-                            <DataGridTextColumn Header="Colour" Binding="{Binding Colour}" Width="Auto" />
-                            <DataGridTextColumn Header="Qty" Binding="{Binding Quantity, StringFormat={}{0:0.###}}" Width="Auto" />
-                            <DataGridTemplateColumn Width="70">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <Button Content="✕" FontSize="11" Padding="6,2" Style="{StaticResource SecondaryButton}"
-                                                Command="{Binding DataContext.RemoveLineCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                CommandParameter="{Binding}" />
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
+                    <!-- Item lines, each with its bundled accessories nested underneath -->
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Lines}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,6">
+                                        <StackPanel>
+                                            <!-- Parent item row -->
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="36" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding Item}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="1" Text="{Binding Grade}" Margin="8,0" VerticalAlignment="Center" Foreground="{StaticResource MutedTextBrush}" />
+                                                <TextBlock Grid.Column="2" Text="{Binding Colour}" Margin="8,0" VerticalAlignment="Center" Foreground="{StaticResource MutedTextBrush}" />
+                                                <TextBlock Grid.Column="3" Text="{Binding Quantity, StringFormat=Qty {0:0.###}}" Margin="8,0" VerticalAlignment="Center" FontWeight="SemiBold" />
+                                                <Button Grid.Column="4" Content="✕" FontSize="11" Padding="6,2" Style="{StaticResource SecondaryButton}"
+                                                        Command="{Binding DataContext.RemoveLineCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}" />
+                                            </Grid>
+                                            <!-- Bundled accessories (indented), each with an Include toggle -->
+                                            <ItemsControl ItemsSource="{Binding Accessories}" Margin="18,4,0,0"
+                                                          Visibility="{Binding HasAccessories, Converter={StaticResource BoolToVis}}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,1">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <CheckBox Grid.Column="0" Content="Include" IsChecked="{Binding Include}" VerticalAlignment="Center" />
+                                                            <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="10,0" VerticalAlignment="Center" Foreground="{StaticResource MutedTextBrush}" />
+                                                            <TextBlock Grid.Column="2" Text="{Binding Quantity, StringFormat={}{0:0.###}}" VerticalAlignment="Center" Foreground="{StaticResource MutedTextBrush}" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
                 </DockPanel>
             </Border>
 

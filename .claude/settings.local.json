@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet --version)",
+      "Bash(dotnet ef *)",
+      "Bash(dotnet build *)",
+      "Bash(python -c \"import sqlite3; c=sqlite3.connect\\('sanistock_designtime.db'\\); print\\('ProductTypes cols:', [r[1] for r in c.execute\\('PRAGMA table_info\\(ProductTypes\\)'\\)]\\); print\\('Items ProductTypeId:', [r[1] for r in c.execute\\('PRAGMA table_info\\(Items\\)'\\) if r[1]=='ProductTypeId']\\); print\\('FKs on Items:', [\\(r[2],r[3],r[4],r[6]\\) for r in c.execute\\('PRAGMA foreign_key_list\\(Items\\)'\\)]\\)\")",
+      "Bash(rm -f sanistock_designtime.db)",
+      "Bash(python -c ' *)",
+      "Bash(dotnet test *)",
+      "PowerShell(Get-Process *)",
+      "Read(//c/Users/it10/AppData/Local/SaniStock/**)",
+      "Bash(cp /c/Users/it10/AppData/Local/SaniStock/sanistock.db /c/Users/it10/AppData/Local/SaniStock/sanistock.db.bak-before-migration)",
+      "Bash(python *)",
+      "Bash(dotnet run *)",
+      "Bash(grep -iE \"nologo|\\\\.db$\")"
+    ]
+  }
+}

@@ -8,9 +8,32 @@ using SaniStock.Domain.Models;
 
 namespace SaniStock.App.ViewModels;
 
-/// <summary>A staged finished-ware line on the order being built.</summary>
-public record BookingLine(int ItemId, int GradeId, int ColourId, string Item, string Grade, string Colour, decimal Quantity);
-/// <summary>A staged accessory line on the order being built.</summary>
+/// <summary>A staged finished-ware line on the order being built, with its bundled accessories.</summary>
+public partial class BookingLine : ObservableObject
+{
+    public int ItemId { get; init; }
+    public int GradeId { get; init; }
+    public int ColourId { get; init; }
+    public string Item { get; init; } = string.Empty;
+    public string Grade { get; init; } = string.Empty;
+    public string Colour { get; init; } = string.Empty;
+    public decimal Quantity { get; init; }
+
+    /// <summary>Default accessories auto-attached to this line; each can be included or excluded.</summary>
+    public ObservableCollection<BookingLineAccessory> Accessories { get; } = new();
+    public bool HasAccessories => Accessories.Count > 0;
+}
+
+/// <summary>A default accessory auto-attached under a booking line, with a per-line include toggle.</summary>
+public partial class BookingLineAccessory : ObservableObject
+{
+    public int AccessoryId { get; init; }
+    public string Name { get; init; } = string.Empty;
+    public decimal Quantity { get; init; }
+    [ObservableProperty] private bool _include = true;
+}
+
+/// <summary>A staged standalone (manually-added) accessory line on the order being built.</summary>
 public record BookingAccessoryLine(int AccessoryId, string Accessory, decimal Quantity);
 /// <summary>A recently booked order summary.</summary>
 public record RecentOrderRow(string OrderNo, DateTime OrderDate, string Party, string Status, int LineCount);
@@ -83,7 +106,28 @@ public partial class OrderBookingViewModel : ViewModelBase
     {
         if (NewItem is null || NewGrade is null || NewColour is null) { _dialogs.Error("Select item, grade and colour."); return; }
         if (!decimal.TryParse(NewQty, out var q) || q <= 0) { _dialogs.Error("Enter a quantity greater than zero."); return; }
-        Lines.Add(new BookingLine(NewItem.Id, NewGrade.Id, NewColour.Id, NewItem.Name, NewGrade.Name, NewColour.Name, q));
+
+        var line = new BookingLine
+        {
+            ItemId = NewItem.Id, GradeId = NewGrade.Id, ColourId = NewColour.Id,
+            Item = NewItem.Name, Grade = NewGrade.Name, Colour = NewColour.Name, Quantity = q
+        };
+
+        // Auto-populate this line's default accessories (recipe × ordered qty), each included by default.
+        using (var scope = _scopes.Create())
+        {
+            foreach (var d in scope.Master.GetItemAccessoryDefaults(NewItem.Id).Where(d => d.IsActive))
+            {
+                line.Accessories.Add(new BookingLineAccessory
+                {
+                    AccessoryId = d.AccessoryId,
+                    Name = d.Accessory?.Name ?? "Accessory",
+                    Quantity = d.QtyPerUnit * q
+                });
+            }
+        }
+
+        Lines.Add(line);
         NewQty = string.Empty;
     }
 
@@ -111,7 +155,8 @@ public partial class OrderBookingViewModel : ViewModelBase
         {
             using var scope = _scopes.Create();
             var input = new OrderInput(Party.Id, OrderDate, string.IsNullOrWhiteSpace(Remarks) ? null : Remarks.Trim(),
-                Lines.Select(l => new OrderLineInput(l.ItemId, l.GradeId, l.ColourId, l.Quantity)).ToList(),
+                Lines.Select(l => new OrderLineInput(l.ItemId, l.GradeId, l.ColourId, l.Quantity,
+                    l.Accessories.Where(a => !a.Include).Select(a => a.AccessoryId).ToList())).ToList(),
                 AccessoryLines.Select(a => new OrderAccessoryLineInput(a.AccessoryId, a.Quantity)).ToList());
             var order = scope.Orders.Book(input);
             _dialogs.Info($"Order {order.OrderNo} booked.");

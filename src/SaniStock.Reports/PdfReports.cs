@@ -62,23 +62,11 @@ public static class PdfReports
             $"{fromDate:dd-MMM-yyyy} to {toDate:dd-MMM-yyyy}", cols, rows).GeneratePdf(path);
     }
 
+    /// <summary>
+    /// Orders report — one separate table per order, with the order-level info (Order No, Date,
+    /// Customer, Status) shown once in a header block above each order's lines.
+    /// </summary>
     public static void SaveOrders(IReadOnlyList<OrderReportRow> rows, string path,
         DateTime fromDate, DateTime toDate)
-    {
-        var cols = new List<ReportColumn<OrderReportRow>>
-        {
-            new("Order No", 2, r => r.OrderNo),
-            new("Date", 2, r => r.OrderDate.ToString("dd-MMM-yyyy")),
-            new("Customer", 3, r => r.Party),
-            new("Status", 2, r => r.Status),
-            new("Item / Accessory", 3, r => r.ItemOrAccessory),
-            new("Grade", 1.5f, r => r.Grade),
-            new("Colour", 1.5f, r => r.Colour),
-            new("Ordered", 1.5f, r => r.Ordered.ToString("0.###"), alignRight: true),
-            new("Sent", 1.5f, r => r.Dispatched.ToString("0.###"), alignRight: true),
-            new("Left", 1.5f, r => r.Pending.ToString("0.###"), alignRight: true),
-        };
-        new TableReportDocument<OrderReportRow>("Orders Report",
-            $"{fromDate:dd-MMM-yyyy} to {toDate:dd-MMM-yyyy}", cols, rows).GeneratePdf(path);
-    }
+        => new OrdersReportDocument(rows, fromDate, toDate).GeneratePdf(path);
 }

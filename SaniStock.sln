@@ -1,0 +1,57 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{B7917894-45B2-409B-9C20-081AAD50CFBD}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{6579E335-AF1E-40D2-89C8-C6CF1F71CF5E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SaniStock.App", "src/SaniStock.App/SaniStock.App.csproj", "{1548EC8F-EFA5-4A50-A432-E670C8FA250B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SaniStock.Data", "src/SaniStock.Data/SaniStock.Data.csproj", "{51CDFFC1-B743-40E8-A4C1-9567CDDA90DB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SaniStock.Domain", "src/SaniStock.Domain/SaniStock.Domain.csproj", "{3D32C7FE-5D21-4B03-A49F-E8C5CAB05F65}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SaniStock.Reports", "src/SaniStock.Reports/SaniStock.Reports.csproj", "{184EA080-907F-421C-B4C9-0E205CC07FE5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SaniStock.Domain.Tests", "tests/SaniStock.Domain.Tests/SaniStock.Domain.Tests.csproj", "{73ABFFC1-1EB1-4124-80D7-B606E3787109}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1548EC8F-EFA5-4A50-A432-E670C8FA250B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1548EC8F-EFA5-4A50-A432-E670C8FA250B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1548EC8F-EFA5-4A50-A432-E670C8FA250B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1548EC8F-EFA5-4A50-A432-E670C8FA250B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{51CDFFC1-B743-40E8-A4C1-9567CDDA90DB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{51CDFFC1-B743-40E8-A4C1-9567CDDA90DB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{51CDFFC1-B743-40E8-A4C1-9567CDDA90DB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{51CDFFC1-B743-40E8-A4C1-9567CDDA90DB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3D32C7FE-5D21-4B03-A49F-E8C5CAB05F65}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3D32C7FE-5D21-4B03-A49F-E8C5CAB05F65}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3D32C7FE-5D21-4B03-A49F-E8C5CAB05F65}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3D32C7FE-5D21-4B03-A49F-E8C5CAB05F65}.Release|Any CPU.Build.0 = Release|Any CPU
+		{184EA080-907F-421C-B4C9-0E205CC07FE5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{184EA080-907F-421C-B4C9-0E205CC07FE5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{184EA080-907F-421C-B4C9-0E205CC07FE5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{184EA080-907F-421C-B4C9-0E205CC07FE5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{73ABFFC1-1EB1-4124-80D7-B606E3787109}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{73ABFFC1-1EB1-4124-80D7-B606E3787109}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{73ABFFC1-1EB1-4124-80D7-B606E3787109}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{73ABFFC1-1EB1-4124-80D7-B606E3787109}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{1548EC8F-EFA5-4A50-A432-E670C8FA250B} = {B7917894-45B2-409B-9C20-081AAD50CFBD}
+		{51CDFFC1-B743-40E8-A4C1-9567CDDA90DB} = {B7917894-45B2-409B-9C20-081AAD50CFBD}
+		{3D32C7FE-5D21-4B03-A49F-E8C5CAB05F65} = {B7917894-45B2-409B-9C20-081AAD50CFBD}
+		{184EA080-907F-421C-B4C9-0E205CC07FE5} = {B7917894-45B2-409B-9C20-081AAD50CFBD}
+		{73ABFFC1-1EB1-4124-80D7-B606E3787109} = {6579E335-AF1E-40D2-89C8-C6CF1F71CF5E}
+	EndGlobalSection
+EndGlobal

@@ -1,16 +1,16 @@
-; Inno Setup script for SaniStock
+; Inno Setup script for SaniStock v2
 ; Build the app first (self-contained, bundles the .NET runtime), then compile this script:
 ;   dotnet publish ..\src\SaniStock.App\SaniStock.App.csproj -c Release -r win-x64 --self-contained true -o ..\publish
-;   iscc SaniStock.iss
+;   iscc SaniStock-Setup-v2.iss
 ; Produces Output\SaniStock-Setup-x64.exe which installs on machines WITHOUT .NET installed.
 
 #define AppName "SaniStock"
-#define AppVersion "1.0.0"
+#define AppVersion "2.0.0"
 #define AppPublisher "SaniStock"
 #define AppExe "SaniStock.exe"
 
 [Setup]
-AppId={{7B3D2C1A-9E44-4F6B-8A21-SANISTOCK001}
+AppId={{7B3D2C1A-9E44-4F6B-8A21-SANISTOCK002}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher={#AppPublisher}
@@ -21,8 +21,8 @@ OutputDir=Output
 OutputBaseFilename=SaniStock-Setup-x64
 Compression=lzma2
 SolidCompression=yes
-ArchitecturesAllowed=x64compatible
-ArchitecturesInstallIn64BitMode=x64compatible
+ArchitecturesAllowed=x64
+ArchitecturesInstallIn64BitMode=x64
 WizardStyle=modern
 UninstallDisplayIcon={app}\{#AppExe}
 

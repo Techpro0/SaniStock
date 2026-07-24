@@ -1,10 +1,12 @@
 # SaniStock — data model
 
 ## Master data
-- **Item** (code, name, unit, active) — finished ware
+- **ProductType** (code, name, active) — ware category (Water Closet, Wash Basin, Bib Cock…), seeded, extensible. Sits above Item.
+- **Item** (code, name, unit, active, productType?) — finished ware; optional `ProductTypeId` (SetNull on delete, nullable so legacy items are unaffected)
 - **Grade** (name, sort, active) — 1st/2nd/3rd, seeded, extensible
 - **Colour** (name, hex?, active)
 - **Accessory** (code, name, unit, active)
+- **ItemAccessoryDefault** (item, accessory, qtyPerUnit, active) — the bundling "recipe": accessories booked automatically per item unit ordered. Unique per item+accessory.
 - **Party** (name, address?, contact?, gstin?, active) — customer
 - **RawMaterial** (name, unit, active)
 
@@ -25,9 +27,11 @@
   → `StockMovement` `Production` (+OnHand)
 - **AccessoryReceipt** → `AccessoryStockMovement` `Production` (+OnHand)
 - **Order** (OrderNo, party, date, status) with **OrderLine** (item+grade+colour, ordered/dispatched/reserved)
-  and **OrderAccessoryLine**
-  - Booking → movement `Reservation` (+Reserved)
-  - Cancel → movement `ReservationRelease` (−Reserved) for undispatched qty
+  and **OrderAccessoryLine** (accessory, ordered/dispatched/reserved, `SourceOrderLineId?` — set when the line
+  was auto-attached from an item's `ItemAccessoryDefault`; null for a manually-added standalone accessory)
+  - Booking → movement `Reservation` (+Reserved). Each item line also auto-reserves its active
+    `ItemAccessoryDefault` accessories (qtyPerUnit × ordered), except any excluded per-line at booking.
+  - Cancel → movement `ReservationRelease` (−Reserved) for undispatched qty, on item **and** bundled accessory lines
 - **DispatchEntry** (DispatchNo, order, date) with **DispatchLine** / **DispatchAccessoryLine**
   → movement `Dispatch` (−OnHand, −Reserved); advances OrderLine + Order status
 
