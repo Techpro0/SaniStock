@@ -14,9 +14,11 @@ public partial class BookingLine : ObservableObject
     public int ItemId { get; init; }
     public int GradeId { get; init; }
     public int ColourId { get; init; }
+    public int BrandId { get; init; }
     public string Item { get; init; } = string.Empty;
     public string Grade { get; init; } = string.Empty;
     public string Colour { get; init; } = string.Empty;
+    public string Brand { get; init; } = string.Empty;
     public decimal Quantity { get; init; }
 
     /// <summary>Default accessories auto-attached to this line; each can be included or excluded.</summary>
@@ -54,6 +56,8 @@ public partial class OrderBookingViewModel : ViewModelBase
     public ObservableCollection<Item> Items { get; } = new();
     public ObservableCollection<Grade> Grades { get; } = new();
     public ObservableCollection<Colour> Colours { get; } = new();
+    /// <summary>Active brands only — an order is always placed for a brand still being sold.</summary>
+    public ObservableCollection<Brand> Brands { get; } = new();
     public ObservableCollection<Accessory> Accessories { get; } = new();
 
     public ObservableCollection<BookingLine> Lines { get; } = new();
@@ -68,6 +72,7 @@ public partial class OrderBookingViewModel : ViewModelBase
     [ObservableProperty] private Item? _newItem;
     [ObservableProperty] private Grade? _newGrade;
     [ObservableProperty] private Colour? _newColour;
+    [ObservableProperty] private Brand? _newBrand;
     [ObservableProperty] private string _newQty = string.Empty;
 
     // add-accessory fields
@@ -84,6 +89,7 @@ public partial class OrderBookingViewModel : ViewModelBase
         Fill(Items, scope.Db.Items.Where(x => x.IsActive).OrderBy(x => x.Name).ToList());
         Fill(Grades, scope.Db.Grades.Where(x => x.IsActive).OrderBy(x => x.SortOrder).ToList());
         Fill(Colours, scope.Db.Colours.Where(x => x.IsActive).OrderBy(x => x.Name).ToList());
+        Fill(Brands, scope.Db.Brands.Where(x => x.IsActive).OrderBy(x => x.Name).ToList());
         Fill(Accessories, scope.Db.Accessories.Where(x => x.IsActive).OrderBy(x => x.Name).ToList());
         LoadRecent(scope);
     }
@@ -104,13 +110,15 @@ public partial class OrderBookingViewModel : ViewModelBase
     [RelayCommand]
     private void AddLine()
     {
-        if (NewItem is null || NewGrade is null || NewColour is null) { _dialogs.Error("Select item, grade and colour."); return; }
+        if (NewItem is null || NewGrade is null || NewColour is null || NewBrand is null)
+        { _dialogs.Error("Select item, grade, colour and brand."); return; }
         if (!decimal.TryParse(NewQty, out var q) || q <= 0) { _dialogs.Error("Enter a quantity greater than zero."); return; }
 
         var line = new BookingLine
         {
-            ItemId = NewItem.Id, GradeId = NewGrade.Id, ColourId = NewColour.Id,
-            Item = NewItem.Name, Grade = NewGrade.Name, Colour = NewColour.Name, Quantity = q
+            ItemId = NewItem.Id, GradeId = NewGrade.Id, ColourId = NewColour.Id, BrandId = NewBrand.Id,
+            Item = NewItem.Name, Grade = NewGrade.Name, Colour = NewColour.Name, Brand = NewBrand.Name,
+            Quantity = q
         };
 
         // Auto-populate this line's default accessories (recipe × ordered qty), each included by default.
@@ -155,7 +163,7 @@ public partial class OrderBookingViewModel : ViewModelBase
         {
             using var scope = _scopes.Create();
             var input = new OrderInput(Party.Id, OrderDate, string.IsNullOrWhiteSpace(Remarks) ? null : Remarks.Trim(),
-                Lines.Select(l => new OrderLineInput(l.ItemId, l.GradeId, l.ColourId, l.Quantity,
+                Lines.Select(l => new OrderLineInput(l.ItemId, l.GradeId, l.ColourId, l.BrandId, l.Quantity,
                     l.Accessories.Where(a => !a.Include).Select(a => a.AccessoryId).ToList())).ToList(),
                 AccessoryLines.Select(a => new OrderAccessoryLineInput(a.AccessoryId, a.Quantity)).ToList());
             var order = scope.Orders.Book(input);

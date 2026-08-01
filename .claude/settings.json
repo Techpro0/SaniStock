@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet test *)",
+      "Bash(dotnet ef *)",
+      "Bash(dotnet tool *)",
+      "Bash(sqlite3 --version)",
+      "Bash(dotnet build *)"
+    ]
+  }
+}

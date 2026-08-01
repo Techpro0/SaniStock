@@ -58,3 +58,44 @@ using (var wb = new ClosedXML.Excel.XLWorkbook(xlsxPath))
         Console.WriteLine($"  {r,2}| " + string.Join(" | ", cells));
     }
 }
+
+// Finished stock, whose column count depends on how many brands exist. Worth previewing on real
+// data: the brand columns are generated, the page flips to landscape once there are enough of
+// them, and neither is visible from a unit test.
+var stock = reports.GetFinishedStock();
+var stockPdf = Path.Combine(dir, $"{stem}-stock.pdf");
+var stockXlsx = Path.Combine(dir, $"{stem}-stock.xlsx");
+PdfReports.SaveFinishedStock(stock, stockPdf, DateTime.Today);
+ExcelReports.SaveFinishedStock(stock, stockXlsx);
+
+Console.WriteLine();
+Console.WriteLine($"Stock: {stock.Rows.Count} rows, {stock.Brands.Count} brand column(s): " +
+                  string.Join(", ", stock.Brands.Select(b => b.Name)));
+Console.WriteLine($"PDF: {stockPdf}");
+Console.WriteLine($"XLSX: {stockXlsx}");
+Console.WriteLine("--- first 8 rows of the Finished Stock sheet ---");
+using (var wb = new ClosedXML.Excel.XLWorkbook(stockXlsx))
+{
+    var ws = wb.Worksheet(1);
+    var used = ws.RangeUsed();
+    int maxRow = Math.Min(8, used?.RowCount() ?? 0);
+    int maxCol = used?.ColumnCount() ?? 0;
+    for (int r = 1; r <= maxRow; r++)
+    {
+        var cells = Enumerable.Range(1, maxCol).Select(c => ws.Cell(r, c).GetFormattedString());
+        Console.WriteLine($"  {r,2}| " + string.Join(" | ", cells));
+    }
+}
+
+// Accessory stock — the other grid on the Stock screen, and the one its export buttons now follow
+// when the Accessories tab is showing.
+var accessories = reports.GetAccessoryStock();
+var accPdf = Path.Combine(dir, $"{stem}-accessories.pdf");
+PdfReports.SaveAccessoryStock(accessories, accPdf, DateTime.Today);
+
+Console.WriteLine();
+Console.WriteLine($"Accessory stock: {accessories.Count} rows");
+Console.WriteLine($"PDF: {accPdf}");
+foreach (var a in accessories.Take(8))
+    Console.WriteLine($"  {a.AccessoryCode,-8} {a.AccessoryName,-22} " +
+                      $"on hand {a.OnHand,8:0.###}  booked {a.Reserved,8:0.###}  free {a.Available,8:0.###}");

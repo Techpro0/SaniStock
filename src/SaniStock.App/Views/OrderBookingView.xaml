@@ -53,6 +53,7 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="70" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
@@ -62,8 +63,10 @@
                                   DisplayMemberPath="Name" Margin="0,0,6,0" />
                         <ComboBox Grid.Column="2" Width="90" ItemsSource="{Binding Colours}" SelectedItem="{Binding NewColour}"
                                   DisplayMemberPath="Name" Margin="0,0,6,0" />
-                        <TextBox Grid.Column="3" Text="{Binding NewQty, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,6,0" />
-                        <Button Grid.Column="4" Content="Add" Command="{Binding AddLineCommand}" Style="{StaticResource SecondaryButton}" />
+                        <ComboBox Grid.Column="3" Width="100" ItemsSource="{Binding Brands}" SelectedItem="{Binding NewBrand}"
+                                  DisplayMemberPath="Name" Margin="0,0,6,0" ToolTip="Brand the customer ordered" />
+                        <TextBox Grid.Column="4" Text="{Binding NewQty, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,6,0" />
+                        <Button Grid.Column="5" Content="Add" Command="{Binding AddLineCommand}" Style="{StaticResource SecondaryButton}" />
                     </Grid>
                     <!-- Item lines, each with its bundled accessories nested underneath -->
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -79,13 +82,15 @@
                                                     <ColumnDefinition Width="Auto" />
                                                     <ColumnDefinition Width="Auto" />
                                                     <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
                                                     <ColumnDefinition Width="36" />
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Grid.Column="0" Text="{Binding Item}" FontWeight="SemiBold" VerticalAlignment="Center" />
                                                 <TextBlock Grid.Column="1" Text="{Binding Grade}" Margin="8,0" VerticalAlignment="Center" Foreground="{StaticResource MutedTextBrush}" />
                                                 <TextBlock Grid.Column="2" Text="{Binding Colour}" Margin="8,0" VerticalAlignment="Center" Foreground="{StaticResource MutedTextBrush}" />
-                                                <TextBlock Grid.Column="3" Text="{Binding Quantity, StringFormat=Qty {0:0.###}}" Margin="8,0" VerticalAlignment="Center" FontWeight="SemiBold" />
-                                                <Button Grid.Column="4" Content="✕" FontSize="11" Padding="6,2" Style="{StaticResource SecondaryButton}"
+                                                <TextBlock Grid.Column="3" Text="{Binding Brand}" Margin="8,0" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{StaticResource BrandBrush}" />
+                                                <TextBlock Grid.Column="4" Text="{Binding Quantity, StringFormat=Qty {0:0.###}}" Margin="8,0" VerticalAlignment="Center" FontWeight="SemiBold" />
+                                                <Button Grid.Column="5" Content="✕" FontSize="11" Padding="6,2" Style="{StaticResource SecondaryButton}"
                                                         Command="{Binding DataContext.RemoveLineCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                         CommandParameter="{Binding}" />
                                             </Grid>

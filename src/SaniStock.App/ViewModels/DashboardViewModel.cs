@@ -53,7 +53,7 @@ public partial class DashboardViewModel : ViewModelBase
             TopShortfalls.Add(s);
 
         LowStock.Clear();
-        foreach (var s in scope.Reports.GetFinishedStock()
+        foreach (var s in scope.Reports.GetFinishedStock().Rows
                      .Where(r => r.OnHand > 0 && r.OnHand <= scope.Reports.LowStockThreshold)
                      .OrderBy(r => r.OnHand).Take(12))
             LowStock.Add(s);

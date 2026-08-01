@@ -92,7 +92,16 @@ public partial class OrderDispatchViewModel : ViewModelBase
             join i in scope.Db.Items on l.ItemId equals i.Id
             join g in scope.Db.Grades on l.GradeId equals g.Id
             join c in scope.Db.Colours on l.ColourId equals c.Id
-            select new { l.Id, Desc = i.Name + " / " + g.Name + " / " + c.Name, l.QuantityOrdered, l.QuantityDispatched };
+            join b in scope.Db.Brands on l.BrandId equals b.Id
+            // Brand is part of what identifies a line now: the same item/grade/colour can appear
+            // twice on one order under two brands, and they draw on different packed stock.
+            select new
+            {
+                l.Id,
+                Desc = i.Name + " / " + g.Name + " / " + c.Name + " / " + b.Name,
+                l.QuantityOrdered,
+                l.QuantityDispatched
+            };
         var byLineId = new Dictionary<int, DispatchLineRow>();
         foreach (var l in lines.ToList())
         {

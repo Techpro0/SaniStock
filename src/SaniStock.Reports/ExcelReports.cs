@@ -38,7 +38,7 @@ public static class ExcelReports
             list.Add(r);
         }
 
-        string[] titles = { "Item / Accessory", "Grade", "Colour", "Ordered", "Sent", "Left to Send" };
+        string[] titles = { "Item / Accessory", "Grade", "Colour", "Brand", "Ordered", "Sent", "Left to Send" };
         var row = 1;
 
         foreach (var no in orderNos)
@@ -71,15 +71,74 @@ public static class ExcelReports
                 ws.Cell(row, 1).Value = r.ItemOrAccessory;
                 ws.Cell(row, 2).Value = r.Grade;
                 ws.Cell(row, 3).Value = r.Colour;
-                ws.Cell(row, 4).Value = r.Ordered;
-                ws.Cell(row, 5).Value = r.Dispatched;
-                ws.Cell(row, 6).Value = r.Pending;
+                ws.Cell(row, 4).Value = r.Brand;
+                ws.Cell(row, 5).Value = r.Ordered;
+                ws.Cell(row, 6).Value = r.Dispatched;
+                ws.Cell(row, 7).Value = r.Pending;
                 row++;
             }
 
             row++;   // blank separator row between orders
         }
 
+        ws.Columns().AdjustToContents();
+        wb.SaveAs(path);
+    }
+
+    /// <summary>
+    /// Finished-goods stock export, laid out to match the on-screen grid and the PDF: one row per
+    /// item+grade+colour, with a packed column per brand between "Not Packed" and the totals.
+    /// <para>
+    /// Written by hand rather than through the generic reflection exporter, which walks an object's
+    /// simple properties and would silently skip the per-brand breakdown — the whole point of this
+    /// sheet — while emitting nothing in its place.
+    /// </para>
+    /// </summary>
+    public static void SaveFinishedStock(FinishedStockView view, string path, string sheetName = "Finished Stock")
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add(Trim(sheetName));
+
+        var titles = new List<string> { "Item Code", "Item", "Grade", "Colour", "Not Packed" };
+        titles.AddRange(view.Brands.Select(b => $"Packed — {b.Name}"));
+        titles.AddRange(new[] { "Packed Total", "In Stock", "Booked", "Free" });
+
+        for (var c = 0; c < titles.Count; c++)
+        {
+            var cell = ws.Cell(1, c + 1);
+            cell.Value = titles[c];
+            cell.Style.Font.Bold = true;
+            cell.Style.Fill.BackgroundColor = XLColor.LightGray;
+            cell.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
+        }
+
+        var row = 2;
+        foreach (var r in view.Rows)
+        {
+            var col = 1;
+            ws.Cell(row, col++).Value = r.ItemCode;
+            ws.Cell(row, col++).Value = r.ItemName;
+            ws.Cell(row, col++).Value = r.Grade;
+            ws.Cell(row, col++).Value = r.Colour;
+            ws.Cell(row, col++).Value = r.RawOnHand;
+
+            // Positional, matching the header: the breakdown is aligned to view.Brands.
+            for (var i = 0; i < view.Brands.Count; i++)
+                ws.Cell(row, col++).Value = i < r.PackedByBrand.Count ? r.PackedByBrand[i].Packed : 0m;
+
+            ws.Cell(row, col++).Value = r.PackedOnHand;
+            ws.Cell(row, col++).Value = r.OnHand;
+            ws.Cell(row, col++).Value = r.Reserved;
+
+            var free = ws.Cell(row, col);
+            free.Value = r.Available;
+            // Same signal the grid paints: booked beyond what exists is the shortfall, not an error.
+            if (r.Available < 0) free.Style.Font.FontColor = XLColor.Red;
+
+            row++;
+        }
+
+        ws.SheetView.FreezeRows(1);
         ws.Columns().AdjustToContents();
         wb.SaveAs(path);
     }

@@ -13,8 +13,21 @@ public static class DbSeeder
     {
         SeedGrades(db);
         SeedProductTypes(db);
+        SeedBrands(db);
         SeedAdmin(db);
         db.SaveChanges();
+    }
+
+    /// <summary>
+    /// One starter brand, so packing works on a brand-new database without a trip to Setup Lists.
+    /// Seeded by code, like product types, and deliberately the same code the Brand migration
+    /// assigns to pre-existing packed stock — so an upgraded database and a fresh one both end up
+    /// with exactly this one row rather than two near-identical brands.
+    /// </summary>
+    private static void SeedBrands(SaniStockDbContext db)
+    {
+        if (!db.Brands.Any(x => x.Code == Brand.DefaultCode))
+            db.Brands.Add(new Brand { Code = Brand.DefaultCode, Name = "Unbranded", IsActive = true });
     }
 
     /// <summary>

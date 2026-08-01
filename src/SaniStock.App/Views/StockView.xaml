@@ -10,15 +10,15 @@
 
         <StackPanel Grid.Row="0" Margin="0,0,0,12">
             <TextBlock Text="Stock" Style="{StaticResource H1}" />
-            <TextBlock Text="Free = In Stock − Booked.  A red number means you have booked more than you have."
-                       Style="{StaticResource Muted}" />
+            <TextBlock Text="One row per item, grade and colour. Not Packed is shared — unpacked ware has no brand yet — and each brand gets its own Packed column.  In Stock = Not Packed + Packed.  Free = In Stock − Booked.  A red number means you have booked more than you have."
+                       Style="{StaticResource Muted}" TextWrapping="Wrap" />
         </StackPanel>
 
         <!-- Toolbar -->
         <DockPanel Grid.Row="1" Margin="0,0,0,12">
             <TextBox Width="260" DockPanel.Dock="Left"
                      Text="{Binding Filter, UpdateSourceTrigger=PropertyChanged}"
-                     Tag="Search item / colour / grade…" />
+                     Tag="Search item / colour / grade / brand…" />
             <CheckBox Content="Show short items only" IsChecked="{Binding ShortfallOnly}"
                       VerticalAlignment="Center" Margin="14,0,0,0" DockPanel.Dock="Left" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" DockPanel.Dock="Right">
@@ -30,14 +30,19 @@
 
         <TabControl Grid.Row="2" Background="Transparent" BorderThickness="0">
             <TabItem Header="Finished Goods">
-                <DataGrid ItemsSource="{Binding Finished}" Margin="0,10,0,0">
+                <!-- x:Name lets the code-behind splice in one Packed column per active brand,
+                     immediately after "Not Packed". They cannot be declared here because the
+                     brand list is master data that changes at runtime. -->
+                <DataGrid x:Name="FinishedGrid" ItemsSource="{Binding Finished}" Margin="0,10,0,0">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Code" Binding="{Binding ItemCode}" Width="Auto" />
                         <DataGridTextColumn Header="Item" Binding="{Binding ItemName}" Width="*" />
                         <DataGridTextColumn Header="Grade" Binding="{Binding Grade}" Width="Auto" />
                         <DataGridTextColumn Header="Colour" Binding="{Binding Colour}" Width="Auto" />
-                        <DataGridTextColumn Header="In Stock" Binding="{Binding OnHand, StringFormat={}{0:0.###}}" Width="110" />
-                        <DataGridTextColumn Header="Booked" Binding="{Binding Reserved, StringFormat={}{0:0.###}}" Width="110" />
+                        <DataGridTextColumn Header="Not Packed" Binding="{Binding RawOnHand, StringFormat={}{0:0.###}}" Width="100" />
+                        <DataGridTextColumn Header="Packed Total" Binding="{Binding PackedOnHand, StringFormat={}{0:0.###}}" Width="100" />
+                        <DataGridTextColumn Header="In Stock" Binding="{Binding OnHand, StringFormat={}{0:0.###}}" Width="100" />
+                        <DataGridTextColumn Header="Booked" Binding="{Binding Reserved, StringFormat={}{0:0.###}}" Width="100" />
                         <DataGridTextColumn Header="Free" Binding="{Binding Available, StringFormat={}{0:0.###}}" Width="110">
                             <DataGridTextColumn.ElementStyle>
                                 <Style TargetType="TextBlock">
@@ -49,7 +54,9 @@
                     </DataGrid.Columns>
                 </DataGrid>
             </TabItem>
-            <TabItem Header="Accessories">
+            <!-- IsSelected drives ShowingAccessories, which is how the Save PDF / Save Excel
+                 buttons in the toolbar know which grid the user is looking at. -->
+            <TabItem Header="Accessories" IsSelected="{Binding ShowingAccessories, Mode=TwoWay}">
                 <DataGrid ItemsSource="{Binding Accessories}" Margin="0,10,0,0">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Code" Binding="{Binding AccessoryCode}" Width="Auto" />

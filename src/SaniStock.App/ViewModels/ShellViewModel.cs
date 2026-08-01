@@ -34,6 +34,7 @@ public partial class ShellViewModel : ObservableObject
         {
             new NavItem("🏠", "Home", typeof(DashboardViewModel), false),
             new NavItem("➕", "Add Stock", typeof(ProductionViewModel), false),
+            new NavItem("🎁", "Packing", typeof(PackingViewModel), false),
             new NavItem("📦", "Stock", typeof(StockViewModel), false),
             new NavItem("📝", "New Order", typeof(OrderBookingViewModel), false),
             new NavItem("🚚", "Send Order", typeof(OrderDispatchViewModel), false),

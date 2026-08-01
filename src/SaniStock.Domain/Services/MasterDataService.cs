@@ -62,6 +62,18 @@ public class MasterDataService
         return c;
     }
 
+    // ---- Brand ----
+    public Brand SaveBrand(Brand b)
+    {
+        b.Code = Require(b.Code, "Brand code");
+        b.Name = Require(b.Name, "Brand name");
+        if (_db.Brands.Any(x => x.Code == b.Code && x.Id != b.Id))
+            throw new DomainException($"Brand code '{b.Code}' already exists.");
+        Upsert(_db.Brands, b);
+        _db.SaveChanges();
+        return b;
+    }
+
     // ---- Grade ----
     public Grade SaveGrade(Grade g)
     {

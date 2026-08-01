@@ -13,7 +13,8 @@
       "Bash(cp /c/Users/it10/AppData/Local/SaniStock/sanistock.db /c/Users/it10/AppData/Local/SaniStock/sanistock.db.bak-before-migration)",
       "Bash(python *)",
       "Bash(dotnet run *)",
-      "Bash(grep -iE \"nologo|\\\\.db$\")"
+      "Bash(grep -iE \"nologo|\\\\.db$\")",
+      "Bash(xargs wc -l)"
     ]
   }
 }

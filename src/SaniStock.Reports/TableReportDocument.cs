@@ -11,14 +11,21 @@ public sealed class TableReportDocument<T> : IDocument
     private readonly string? _subtitle;
     private readonly IReadOnlyList<ReportColumn<T>> _columns;
     private readonly IReadOnlyList<T> _rows;
+    private readonly bool _landscape;
 
+    /// <param name="landscape">
+    /// Turn the page sideways. Reports whose column count depends on master data — the stock
+    /// report grows a column per brand — need the extra width once they pass a handful of columns,
+    /// or the cells squeeze until the numbers wrap.
+    /// </param>
     public TableReportDocument(string title, string? subtitle,
-        IReadOnlyList<ReportColumn<T>> columns, IReadOnlyList<T> rows)
+        IReadOnlyList<ReportColumn<T>> columns, IReadOnlyList<T> rows, bool landscape = false)
     {
         _title = title;
         _subtitle = subtitle;
         _columns = columns;
         _rows = rows;
+        _landscape = landscape;
     }
 
     public void Compose(IDocumentContainer container)
@@ -26,7 +33,7 @@ public sealed class TableReportDocument<T> : IDocument
         container.Page(page =>
         {
             page.Margin(28);
-            page.Size(PageSizes.A4);
+            page.Size(_landscape ? PageSizes.A4.Landscape() : PageSizes.A4);
             page.DefaultTextStyle(t => t.FontSize(9));
 
             page.Header().Element(ReportLayout.Header(_title, _subtitle));

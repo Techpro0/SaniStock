@@ -33,5 +33,26 @@ public enum StockMovementType
     /// <summary>Manual correction or reversal of an earlier posting.</summary>
     Adjustment = 4,
     /// <summary>Raw material / green ware consumed or issued out. Decreases OnHand.</summary>
-    Issue = 5
+    Issue = 5,
+    /// <summary>Finished ware packed: moves quantity from unpacked to packed. Total OnHand is unchanged.</summary>
+    Packing = 6
+}
+
+/// <summary>
+/// Which sub-state of finished on-hand stock a quantity sits in. Total OnHand is
+/// always Raw + Packed; only <see cref="StockMovementType.Packing"/> moves quantity
+/// between the two.
+/// </summary>
+public enum StockBucket
+{
+    /// <summary>Packed and ready to ship. Dispatch draws from here first.</summary>
+    Packed = 0,
+    /// <summary>Produced but not yet packed.</summary>
+    Raw = 1,
+    /// <summary>
+    /// Not backed by physical stock at all — the part of a booking that ran the ordered
+    /// grade's Available negative. Recorded so a line's allocations always sum to its
+    /// reserved quantity; resolved against real stock when the goods are finally shipped.
+    /// </summary>
+    Shortfall = 2
 }

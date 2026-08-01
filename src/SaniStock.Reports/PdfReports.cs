@@ -12,20 +12,46 @@ public static class PdfReports
 {
     public static void EnsureLicense() => QuestPDF.Settings.License = LicenseType.Community;
 
-    public static void SaveFinishedStock(IReadOnlyList<StockRow> rows, string path, DateTime asOf)
+    /// <summary>
+    /// Finished-goods stock: one row per item+grade+colour, with a packed column per brand between
+    /// "Not Packed" and the totals. Column positions follow <see cref="FinishedStockView.Brands"/>,
+    /// which every row's breakdown is aligned to, so the layout matches the on-screen grid exactly.
+    /// <para>
+    /// The page turns landscape once the brand list makes portrait too tight. Past roughly eight
+    /// brands even landscape stops being readable — at that point the report wants a rollup rather
+    /// than more columns.
+    /// </para>
+    /// </summary>
+    public static void SaveFinishedStock(FinishedStockView view, string path, DateTime asOf)
     {
         var cols = new List<ReportColumn<StockRow>>
         {
             new("Item Code", 2, r => r.ItemCode),
             new("Item", 4, r => r.ItemName),
-            new("Grade", 2, r => r.Grade),
+            new("Grade", 1.5f, r => r.Grade),
             new("Colour", 2, r => r.Colour),
-            new("In Stock", 2, r => r.OnHand.ToString("0.###"), alignRight: true),
-            new("Booked", 2, r => r.Reserved.ToString("0.###"), alignRight: true),
-            new("Free", 2, r => r.Available.ToString("0.###"), alignRight: true),
+            new("Not Packed", 2, r => r.RawOnHand.ToString("0.###"), alignRight: true),
         };
+
+        // Capture the index, not the loop variable: the closure has to read the same slot of every
+        // row's aligned breakdown.
+        for (var i = 0; i < view.Brands.Count; i++)
+        {
+            var slot = i;
+            cols.Add(new ReportColumn<StockRow>(
+                $"Packed\n{view.Brands[slot].Name}", 2,
+                r => slot < r.PackedByBrand.Count ? r.PackedByBrand[slot].Packed.ToString("0.###") : "0",
+                alignRight: true));
+        }
+
+        cols.Add(new ReportColumn<StockRow>("Packed Total", 2, r => r.PackedOnHand.ToString("0.###"), alignRight: true));
+        cols.Add(new ReportColumn<StockRow>("In Stock", 2, r => r.OnHand.ToString("0.###"), alignRight: true));
+        cols.Add(new ReportColumn<StockRow>("Booked", 2, r => r.Reserved.ToString("0.###"), alignRight: true));
+        cols.Add(new ReportColumn<StockRow>("Free", 2, r => r.Available.ToString("0.###"), alignRight: true));
+
         new TableReportDocument<StockRow>("Finished Goods Stock",
-            $"As of {asOf:dd-MMM-yyyy}", cols, rows).GeneratePdf(path);
+            $"As of {asOf:dd-MMM-yyyy}", cols, view.Rows,
+            landscape: view.Brands.Count > 3).GeneratePdf(path);
     }
 
     public static void SaveAccessoryStock(IReadOnlyList<AccessoryStockRow> rows, string path, DateTime asOf)

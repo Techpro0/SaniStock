@@ -28,6 +28,7 @@ public partial class MasterDataViewModel : ViewModelBase
     public MasterList<Item> ItemsTab { get; }
     public MasterList<Grade> GradesTab { get; }
     public MasterList<Colour> ColoursTab { get; }
+    public MasterList<Brand> BrandsTab { get; }
     public MasterList<Accessory> AccessoriesTab { get; }
     public MasterList<Party> PartiesTab { get; }
     public MasterList<RawMaterial> RawMaterialsTab { get; }
@@ -72,6 +73,12 @@ public partial class MasterDataViewModel : ViewModelBase
             e => new Colour { Id = e.Id, Name = e.Name, HexCode = e.HexCode, IsActive = e.IsActive },
             () => new Colour { IsActive = true }, Err);
 
+        BrandsTab = new MasterList<Brand>(
+            () => Query(db => db.Brands.OrderBy(x => x.Name).ToList()),
+            e => Do(s => s.Master.SaveBrand(e)),
+            e => new Brand { Id = e.Id, Code = e.Code, Name = e.Name, IsActive = e.IsActive },
+            () => new Brand { IsActive = true }, Err);
+
         AccessoriesTab = new MasterList<Accessory>(
             () => Query(db => db.Accessories.OrderBy(x => x.Name).ToList()),
             e => Do(s => s.Master.SaveAccessory(e)),
@@ -106,6 +113,7 @@ public partial class MasterDataViewModel : ViewModelBase
         ItemsTab.Reload();
         GradesTab.Reload();
         ColoursTab.Reload();
+        BrandsTab.Reload();
         AccessoriesTab.Reload();
         PartiesTab.Reload();
         RawMaterialsTab.Reload();

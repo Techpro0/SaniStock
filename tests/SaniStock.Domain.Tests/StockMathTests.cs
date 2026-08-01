@@ -57,7 +57,7 @@ public class StockMathTests
     {
         using var h = new TestHarness();
         h.Production.Post(new ProductionInput(DateTime.Today, h.ItemA, h.Grade1, h.White, 100, null));
-        h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, 30));
+        h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandA, 30));
 
         var bal = h.FinishedBalance(h.ItemA, h.Grade1, h.White);
         Assert.Equal(100, bal.OnHand);
@@ -70,7 +70,7 @@ public class StockMathTests
     {
         using var h = new TestHarness();
         // No production at all; booking should still succeed and signal shortfall.
-        h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, 40));
+        h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandA, 40));
 
         var bal = h.FinishedBalance(h.ItemA, h.Grade1, h.White);
         Assert.Equal(0, bal.OnHand);
@@ -83,8 +83,8 @@ public class StockMathTests
     {
         using var h = new TestHarness();
         h.Production.Post(new ProductionInput(DateTime.Today, h.ItemA, h.Grade1, h.White, 100, null));
-        h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, 30));
-        h.Orders.Book(SingleLineOrder(h.PartyY, h.ItemA, h.Grade1, h.White, 25));
+        h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandA, 30));
+        h.Orders.Book(SingleLineOrder(h.PartyY, h.ItemA, h.Grade1, h.White, h.BrandA, 25));
 
         var bal = h.FinishedBalance(h.ItemA, h.Grade1, h.White);
         Assert.Equal(55, bal.Reserved);
@@ -107,7 +107,7 @@ public class StockMathTests
     {
         using var h = new TestHarness();
         h.Production.Post(new ProductionInput(DateTime.Today, h.ItemA, h.Grade1, h.White, 100, null));
-        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, 30));
+        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandA, 30));
         var line = order.Lines.Single();
 
         h.Dispatch.Dispatch(new DispatchInput(order.Id, DateTime.Today, null,
@@ -124,7 +124,7 @@ public class StockMathTests
     {
         using var h = new TestHarness();
         h.Production.Post(new ProductionInput(DateTime.Today, h.ItemA, h.Grade1, h.White, 100, null));
-        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, 30));
+        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandA, 30));
         var line = order.Lines.Single();
 
         Assert.Throws<DomainException>(() => h.Dispatch.Dispatch(new DispatchInput(order.Id, DateTime.Today, null,
@@ -141,7 +141,7 @@ public class StockMathTests
     {
         using var h = new TestHarness();
         h.Production.Post(new ProductionInput(DateTime.Today, h.ItemA, h.Grade1, h.White, 100, null));
-        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, 30));
+        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandA, 30));
         var lineId = order.Lines.Single().Id;
 
         h.Dispatch.Dispatch(new DispatchInput(order.Id, DateTime.Today, null,
@@ -163,7 +163,7 @@ public class StockMathTests
         using var h = new TestHarness();
         // Booked 30 but only 20 produced so far.
         h.Production.Post(new ProductionInput(DateTime.Today, h.ItemA, h.Grade1, h.White, 20, null));
-        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, 30));
+        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandA, 30));
         var lineId = order.Lines.Single().Id;
 
         // Cannot ship 25 — only 20 physically in stock.
@@ -188,7 +188,7 @@ public class StockMathTests
     public void Dispatch_is_blocked_when_no_stock_produced_at_all()
     {
         using var h = new TestHarness();
-        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, 10));
+        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandA, 10));
         var lineId = order.Lines.Single().Id;
         Assert.Throws<DomainException>(() => h.Dispatch.Dispatch(new DispatchInput(order.Id, DateTime.Today, null,
             new[] { new DispatchLineInput(lineId, 10) }, Array.Empty<DispatchAccessoryLineInput>())));
@@ -214,7 +214,7 @@ public class StockMathTests
     {
         using var h = new TestHarness();
         h.Production.Post(new ProductionInput(DateTime.Today, h.ItemA, h.Grade1, h.White, 100, null));
-        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, 30));
+        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandA, 30));
 
         h.Orders.Cancel(order.Id, "customer withdrew");
 
@@ -230,7 +230,7 @@ public class StockMathTests
     {
         using var h = new TestHarness();
         h.Production.Post(new ProductionInput(DateTime.Today, h.ItemA, h.Grade1, h.White, 100, null));
-        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, 30));
+        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandA, 30));
         var lineId = order.Lines.Single().Id;
 
         h.Dispatch.Dispatch(new DispatchInput(order.Id, DateTime.Today, null,
@@ -248,7 +248,7 @@ public class StockMathTests
     {
         using var h = new TestHarness();
         h.Production.Post(new ProductionInput(DateTime.Today, h.ItemA, h.Grade1, h.White, 100, null));
-        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, 30));
+        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandA, 30));
         var lineId = order.Lines.Single().Id;
         h.Dispatch.Dispatch(new DispatchInput(order.Id, DateTime.Today, null,
             new[] { new DispatchLineInput(lineId, 30) }, Array.Empty<DispatchAccessoryLineInput>()));
@@ -286,20 +286,21 @@ public class StockMathTests
         using var h = new TestHarness();
         h.Production.Post(new ProductionInput(DateTime.Today, h.ItemA, h.Grade1, h.White, 100, null));
         h.Production.Post(new ProductionInput(DateTime.Today, h.ItemA, h.Grade2, h.Blue, 40, null));
-        var o1 = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, 30));
+        var o1 = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandA, 30));
         h.Dispatch.Dispatch(new DispatchInput(o1.Id, DateTime.Today, null,
             new[] { new DispatchLineInput(o1.Lines.Single().Id, 10) }, Array.Empty<DispatchAccessoryLineInput>()));
 
         var before = SnapshotFinished(h);
         // Corrupt the cached balances, then rebuild from the ledger.
-        foreach (var b in h.Db.StockBalances) { b.OnHand = -999; b.Reserved = -999; }
+        foreach (var b in h.Db.StockBalances) { b.RawOnHand = -999; b.PackedOnHand = -999; b.Reserved = -999; }
         h.Db.SaveChanges();
 
         h.Stock.ReconcileAll();
         var after = SnapshotFinished(h);
 
         Assert.Equal(before, after);
-        Assert.Equal((90m, 20m), before[(h.ItemA, h.Grade1, h.White)]); // 100-10 onhand, 30-10 reserved
+        // Nothing was packed, so it all still sits on the brand-less unpacked row.
+        Assert.Equal((90m, 20m), before[(h.ItemA, h.Grade1, h.White, (int?)null)]); // 100-10 onhand, 30-10 reserved
     }
 
     // ---- Green ware & raw material -------------------------------------------
@@ -321,12 +322,14 @@ public class StockMathTests
 
     // ---- Helpers -------------------------------------------------------------
 
-    private static OrderInput SingleLineOrder(int partyId, int itemId, int gradeId, int colourId, decimal qty) =>
+    private static OrderInput SingleLineOrder(int partyId, int itemId, int gradeId, int colourId,
+        int brandId, decimal qty) =>
         new(partyId, DateTime.Today, null,
-            new[] { new OrderLineInput(itemId, gradeId, colourId, qty) },
+            new[] { new OrderLineInput(itemId, gradeId, colourId, brandId, qty) },
             Array.Empty<OrderAccessoryLineInput>());
 
-    private static Dictionary<(int, int, int), (decimal, decimal)> SnapshotFinished(TestHarness h) =>
+    /// <summary>Keyed per balance row, brand included — that is the grain reconcile works at.</summary>
+    private static Dictionary<(int, int, int, int?), (decimal, decimal)> SnapshotFinished(TestHarness h) =>
         h.Db.StockBalances.AsQueryable().ToList()
-            .ToDictionary(b => (b.ItemId, b.GradeId, b.ColourId), b => (b.OnHand, b.Reserved));
+            .ToDictionary(b => (b.ItemId, b.GradeId, b.ColourId, b.BrandId), b => (b.OnHand, b.Reserved));
 }

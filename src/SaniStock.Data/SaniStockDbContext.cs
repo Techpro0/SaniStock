@@ -14,6 +14,7 @@ public class SaniStockDbContext : DbContext
     public DbSet<ProductType> ProductTypes => Set<ProductType>();
     public DbSet<Grade> Grades => Set<Grade>();
     public DbSet<Colour> Colours => Set<Colour>();
+    public DbSet<Brand> Brands => Set<Brand>();
     public DbSet<Accessory> Accessories => Set<Accessory>();
     public DbSet<ItemAccessoryDefault> ItemAccessoryDefaults => Set<ItemAccessoryDefault>();
     public DbSet<Party> Parties => Set<Party>();
@@ -21,6 +22,7 @@ public class SaniStockDbContext : DbContext
 
     // Finished-goods stock
     public DbSet<ProductionEntry> ProductionEntries => Set<ProductionEntry>();
+    public DbSet<PackingEntry> PackingEntries => Set<PackingEntry>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
     public DbSet<StockBalance> StockBalances => Set<StockBalance>();
 
@@ -38,6 +40,7 @@ public class SaniStockDbContext : DbContext
     // Orders & dispatch
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderLine> OrderLines => Set<OrderLine>();
+    public DbSet<OrderLineAllocation> OrderLineAllocations => Set<OrderLineAllocation>();
     public DbSet<OrderAccessoryLine> OrderAccessoryLines => Set<OrderAccessoryLine>();
     public DbSet<DispatchEntry> DispatchEntries => Set<DispatchEntry>();
     public DbSet<DispatchLine> DispatchLines => Set<DispatchLine>();
@@ -55,26 +58,40 @@ public class SaniStockDbContext : DbContext
         b.Entity<Accessory>().HasIndex(x => x.Code).IsUnique();
         b.Entity<Grade>().HasIndex(x => x.Name).IsUnique();
         b.Entity<Colour>().HasIndex(x => x.Name).IsUnique();
+        b.Entity<Brand>().HasIndex(x => x.Code).IsUnique();
         b.Entity<RawMaterial>().HasIndex(x => x.Name).IsUnique();
         b.Entity<User>().HasIndex(x => x.Username).IsUnique();
         b.Entity<Order>().HasIndex(x => x.OrderNo).IsUnique();
         b.Entity<DispatchEntry>().HasIndex(x => x.DispatchNo).IsUnique();
 
-        // One balance row per stock key
-        b.Entity<StockBalance>().HasIndex(x => new { x.ItemId, x.GradeId, x.ColourId }).IsUnique();
+        // One balance row per stock key. SQLite (like the SQL standard) treats NULLs as distinct
+        // in a unique index, so the four-column index alone would happily allow several brand-less
+        // rows for the same item+grade+colour. The filtered index below closes that hole; together
+        // they guarantee exactly one row per key, brand-less or branded.
+        b.Entity<StockBalance>().HasIndex(x => new { x.ItemId, x.GradeId, x.ColourId, x.BrandId }).IsUnique();
+        b.Entity<StockBalance>()
+            .HasIndex(x => new { x.ItemId, x.GradeId, x.ColourId })
+            .IsUnique()
+            .HasFilter("\"BrandId\" IS NULL")
+            .HasDatabaseName("IX_StockBalances_Item_Grade_Colour_Unbranded");
         b.Entity<AccessoryStockBalance>().HasIndex(x => x.AccessoryId).IsUnique();
         b.Entity<GreenPieceBalance>().HasIndex(x => new { x.ItemId, x.ColourId }).IsUnique();
         b.Entity<RawMaterialBalance>().HasIndex(x => x.RawMaterialId).IsUnique();
 
         // Ledger query indexes
-        b.Entity<StockMovement>().HasIndex(x => new { x.ItemId, x.GradeId, x.ColourId, x.Date });
+        b.Entity<StockMovement>().HasIndex(x => new { x.ItemId, x.GradeId, x.ColourId, x.BrandId, x.Date });
         b.Entity<AccessoryStockMovement>().HasIndex(x => new { x.AccessoryId, x.Date });
+        b.Entity<PackingEntry>().HasIndex(x => new { x.ItemId, x.GradeId, x.ColourId, x.Date });
+        b.Entity<PackingEntry>().HasIndex(x => x.BatchId);
 
         // Read-only computed properties are not columns
+        b.Entity<StockBalance>().Ignore(x => x.OnHand);
         b.Entity<StockBalance>().Ignore(x => x.Available);
+        b.Entity<StockMovement>().Ignore(x => x.DeltaOnHand);
         b.Entity<AccessoryStockBalance>().Ignore(x => x.Available);
         b.Entity<OrderLine>().Ignore(x => x.QuantityPending);
         b.Entity<OrderAccessoryLine>().Ignore(x => x.QuantityPending);
+        b.Entity<OrderLineAllocation>().Ignore(x => x.QuantityReserved);
 
         // SQLite has no native decimal type: EF stores decimal as TEXT, which makes numeric
         // comparisons (Reserved > OnHand, negative Available), ORDER BY and SUM behave
@@ -123,6 +140,36 @@ public class SaniStockDbContext : DbContext
         b.Entity<OrderAccessoryLine>()
             .HasOne(x => x.SourceOrderLine).WithMany().HasForeignKey(x => x.SourceOrderLineId)
             .OnDelete(DeleteBehavior.NoAction);
+
+        // A line's allocations belong to it and die with it. The grade reference must not cascade:
+        // an allocation records which grade's stock was drawn, and that history outlives grade edits.
+        b.Entity<OrderLineAllocation>()
+            .HasOne(x => x.OrderLine).WithMany(l => l.Allocations).HasForeignKey(x => x.OrderLineId)
+            .OnDelete(DeleteBehavior.Cascade);
+        b.Entity<OrderLineAllocation>()
+            .HasOne(x => x.Grade).WithMany().HasForeignKey(x => x.GradeId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.Entity<OrderLineAllocation>().HasIndex(x => new { x.OrderLineId, x.Priority });
+
+        // Brand references never cascade. Brands are deactivate-only master data, and every row
+        // pointing at one is history: which brand stock was packed under, which brand an order was
+        // placed for. Restrict also keeps SQLite clear of multiple cascade paths, since orders
+        // already cascade to their lines and lines to their allocations.
+        b.Entity<StockBalance>()
+            .HasOne(x => x.Brand).WithMany().HasForeignKey(x => x.BrandId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.Entity<StockMovement>()
+            .HasOne(x => x.Brand).WithMany().HasForeignKey(x => x.BrandId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.Entity<PackingEntry>()
+            .HasOne(x => x.Brand).WithMany().HasForeignKey(x => x.BrandId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.Entity<OrderLine>()
+            .HasOne(x => x.Brand).WithMany().HasForeignKey(x => x.BrandId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.Entity<OrderLineAllocation>()
+            .HasOne(x => x.Brand).WithMany().HasForeignKey(x => x.BrandId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         base.OnModelCreating(b);
     }

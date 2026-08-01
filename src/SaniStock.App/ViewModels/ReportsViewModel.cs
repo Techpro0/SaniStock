@@ -24,6 +24,13 @@ public partial class ReportsViewModel : ViewModelBase
     public ObservableCollection<Item> Items { get; } = new();
 
     public ObservableCollection<StockRow> StockRows { get; } = new();
+
+    /// <summary>
+    /// The brand columns the loaded stock rows are aligned to, kept so the exports lay the same
+    /// columns out as the Stock screen. The Reports tab shows the totals only, so it does not need
+    /// dynamic grid columns of its own.
+    /// </summary>
+    private IReadOnlyList<BrandColumn> _stockBrands = new List<BrandColumn>();
     public ObservableCollection<ShortfallRow> ShortfallRows { get; } = new();
     public ObservableCollection<ProductionReportRow> ProductionRows { get; } = new();
     public ObservableCollection<OrderReportRow> OrderRows { get; } = new();
@@ -45,7 +52,9 @@ public partial class ReportsViewModel : ViewModelBase
     private void RunStock()
     {
         using var scope = _scopes.Create();
-        Fill(StockRows, scope.Reports.GetFinishedStock());
+        var view = scope.Reports.GetFinishedStock();
+        _stockBrands = view.Brands;
+        Fill(StockRows, view.Rows);
     }
 
     [RelayCommand]
@@ -70,13 +79,17 @@ public partial class ReportsViewModel : ViewModelBase
     }
 
     // ---- Exports ----
-    [RelayCommand] private void StockPdf() => Pdf("Stock", p => PdfReports.SaveFinishedStock(StockRows.ToList(), p, DateTime.Today));
-    [RelayCommand] private void StockExcel() => Excel("Stock", p => ExcelExporter.Save(StockRows.ToList(), p, "Stock"));
+    // Both stock exports go through the brand-aware writers: the generic reflection exporter would
+    // quietly drop the per-brand packed breakdown, which is most of the point of this report now.
+    [RelayCommand] private void StockPdf() => Pdf("Stock", p => PdfReports.SaveFinishedStock(StockView(), p, DateTime.Today));
+    [RelayCommand] private void StockExcel() => Excel("Stock", p => ExcelReports.SaveFinishedStock(StockView(), p, "Stock"));
     [RelayCommand] private void ShortfallPdf() => Pdf("Shortfall", p => PdfReports.SaveShortfall(ShortfallRows.ToList(), p));
     [RelayCommand] private void ProductionPdf() => Pdf("Production", p => PdfReports.SaveProduction(ProductionRows.ToList(), p, FromDate, ToDate));
     [RelayCommand] private void ProductionExcel() => Excel("Production", p => ExcelExporter.Save(ProductionRows.ToList(), p, "Production"));
     [RelayCommand] private void OrdersPdf() => Pdf("Orders", p => PdfReports.SaveOrders(OrderRows.ToList(), p, FromDate, ToDate));
     [RelayCommand] private void OrdersExcel() => Excel("Orders", p => ExcelReports.SaveOrders(OrderRows.ToList(), p, "Orders"));
+
+    private FinishedStockView StockView() => new(_stockBrands, StockRows.ToList());
 
     private void Pdf(string name, Action<string> save)
     {

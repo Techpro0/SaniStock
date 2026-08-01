@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SaniStock.Data;
 
@@ -10,9 +11,11 @@ using SaniStock.Data;
 namespace SaniStock.Data.Migrations
 {
     [DbContext(typeof(SaniStockDbContext))]
-    partial class SaniStockDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260725124010_AddPackingAndGradeAllocation")]
+    partial class AddPackingAndGradeAllocation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.11");
@@ -188,31 +191,6 @@ namespace SaniStock.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("AuditLogs");
-                });
-
-            modelBuilder.Entity("SaniStock.Data.Entities.Brand", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.ToTable("Brands");
                 });
 
             modelBuilder.Entity("SaniStock.Data.Entities.Colour", b =>
@@ -554,9 +532,6 @@ namespace SaniStock.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("BrandId")
-                        .HasColumnType("INTEGER");
-
                     b.Property<int>("ColourId")
                         .HasColumnType("INTEGER");
 
@@ -580,8 +555,6 @@ namespace SaniStock.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BrandId");
-
                     b.HasIndex("ColourId");
 
                     b.HasIndex("GradeId");
@@ -597,9 +570,6 @@ namespace SaniStock.Data.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int?>("BrandId")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("Bucket")
@@ -625,8 +595,6 @@ namespace SaniStock.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BrandId");
-
                     b.HasIndex("GradeId");
 
                     b.HasIndex("OrderLineId", "Priority");
@@ -638,12 +606,6 @@ namespace SaniStock.Data.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int?>("BatchId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("BrandId")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("ColourId")
@@ -678,10 +640,6 @@ namespace SaniStock.Data.Migrations
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("BatchId");
-
-                    b.HasIndex("BrandId");
 
                     b.HasIndex("ColourId");
 
@@ -878,9 +836,6 @@ namespace SaniStock.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<int?>("BrandId")
-                        .HasColumnType("INTEGER");
-
                     b.Property<int>("ColourId")
                         .HasColumnType("INTEGER");
 
@@ -901,18 +856,11 @@ namespace SaniStock.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BrandId");
-
                     b.HasIndex("ColourId");
 
                     b.HasIndex("GradeId");
 
                     b.HasIndex("ItemId", "GradeId", "ColourId")
-                        .IsUnique()
-                        .HasDatabaseName("IX_StockBalances_Item_Grade_Colour_Unbranded")
-                        .HasFilter("\"BrandId\" IS NULL");
-
-                    b.HasIndex("ItemId", "GradeId", "ColourId", "BrandId")
                         .IsUnique();
 
                     b.ToTable("StockBalances");
@@ -922,9 +870,6 @@ namespace SaniStock.Data.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int?>("BrandId")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("ColourId")
@@ -969,13 +914,11 @@ namespace SaniStock.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BrandId");
-
                     b.HasIndex("ColourId");
 
                     b.HasIndex("GradeId");
 
-                    b.HasIndex("ItemId", "GradeId", "ColourId", "BrandId", "Date");
+                    b.HasIndex("ItemId", "GradeId", "ColourId", "Date");
 
                     b.ToTable("StockMovements");
                 });
@@ -1199,12 +1142,6 @@ namespace SaniStock.Data.Migrations
 
             modelBuilder.Entity("SaniStock.Data.Entities.OrderLine", b =>
                 {
-                    b.HasOne("SaniStock.Data.Entities.Brand", "Brand")
-                        .WithMany()
-                        .HasForeignKey("BrandId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("SaniStock.Data.Entities.Colour", "Colour")
                         .WithMany()
                         .HasForeignKey("ColourId")
@@ -1229,8 +1166,6 @@ namespace SaniStock.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Brand");
-
                     b.Navigation("Colour");
 
                     b.Navigation("Grade");
@@ -1242,11 +1177,6 @@ namespace SaniStock.Data.Migrations
 
             modelBuilder.Entity("SaniStock.Data.Entities.OrderLineAllocation", b =>
                 {
-                    b.HasOne("SaniStock.Data.Entities.Brand", "Brand")
-                        .WithMany()
-                        .HasForeignKey("BrandId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("SaniStock.Data.Entities.Grade", "Grade")
                         .WithMany()
                         .HasForeignKey("GradeId")
@@ -1259,8 +1189,6 @@ namespace SaniStock.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Brand");
-
                     b.Navigation("Grade");
 
                     b.Navigation("OrderLine");
@@ -1268,12 +1196,6 @@ namespace SaniStock.Data.Migrations
 
             modelBuilder.Entity("SaniStock.Data.Entities.PackingEntry", b =>
                 {
-                    b.HasOne("SaniStock.Data.Entities.Brand", "Brand")
-                        .WithMany()
-                        .HasForeignKey("BrandId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("SaniStock.Data.Entities.Colour", "Colour")
                         .WithMany()
                         .HasForeignKey("ColourId")
@@ -1291,8 +1213,6 @@ namespace SaniStock.Data.Migrations
                         .HasForeignKey("ItemId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Brand");
 
                     b.Navigation("Colour");
 
@@ -1352,11 +1272,6 @@ namespace SaniStock.Data.Migrations
 
             modelBuilder.Entity("SaniStock.Data.Entities.StockBalance", b =>
                 {
-                    b.HasOne("SaniStock.Data.Entities.Brand", "Brand")
-                        .WithMany()
-                        .HasForeignKey("BrandId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("SaniStock.Data.Entities.Colour", "Colour")
                         .WithMany()
                         .HasForeignKey("ColourId")
@@ -1374,8 +1289,6 @@ namespace SaniStock.Data.Migrations
                         .HasForeignKey("ItemId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Brand");
 
                     b.Navigation("Colour");
 
@@ -1386,11 +1299,6 @@ namespace SaniStock.Data.Migrations
 
             modelBuilder.Entity("SaniStock.Data.Entities.StockMovement", b =>
                 {
-                    b.HasOne("SaniStock.Data.Entities.Brand", "Brand")
-                        .WithMany()
-                        .HasForeignKey("BrandId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("SaniStock.Data.Entities.Colour", "Colour")
                         .WithMany()
                         .HasForeignKey("ColourId")
@@ -1408,8 +1316,6 @@ namespace SaniStock.Data.Migrations
                         .HasForeignKey("ItemId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Brand");
 
                     b.Navigation("Colour");
 

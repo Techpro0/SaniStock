@@ -14,8 +14,10 @@ public sealed class DomainScope : IDisposable
 {
     public SaniStockDbContext Db { get; }
     public StockService Stock { get; }
+    public StockAllocationService Allocations { get; }
     public NumberSequenceService Numbers { get; }
     public ProductionService Production { get; }
+    public PackingService Packing { get; }
     public AccessoryReceiptService AccessoryReceipts { get; }
     public OrderService Orders { get; }
     public DispatchService Dispatch { get; }
@@ -29,11 +31,13 @@ public sealed class DomainScope : IDisposable
     {
         Db = factory.CreateDbContext();
         Stock = new StockService(Db, user);
+        Allocations = new StockAllocationService(Db, Stock);
         Numbers = new NumberSequenceService(Db);
         Production = new ProductionService(Db, Stock, user);
+        Packing = new PackingService(Db, Stock, user);
         AccessoryReceipts = new AccessoryReceiptService(Db, Stock, user);
-        Orders = new OrderService(Db, Stock, Numbers, user);
-        Dispatch = new DispatchService(Db, Stock, Numbers, user);
+        Orders = new OrderService(Db, Stock, Allocations, Numbers, user);
+        Dispatch = new DispatchService(Db, Stock, Allocations, Numbers, user);
         Reports = new ReportService(Db);
         Green = new GreenPieceService(Db, Stock, user);
         Raw = new RawMaterialService(Db, Stock, user);

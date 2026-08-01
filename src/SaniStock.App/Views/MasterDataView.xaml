@@ -201,6 +201,41 @@
                 </Grid>
             </TabItem>
 
+            <!-- Brands: assigned at packing, ordered against. Deactivate rather than delete, like
+                 every other list here — packed stock and old orders still point at them. -->
+            <TabItem Header="Brands" DataContext="{Binding BrandsTab}">
+                <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="320" />
+                    </Grid.ColumnDefinitions>
+                    <DataGrid ItemsSource="{Binding Items}" Margin="0,0,12,0">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="Auto" />
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
+                            <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive}" Width="Auto" />
+                            <DataGridTemplateColumn Width="70" CellTemplate="{StaticResource EditCell}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Border Grid.Column="1" Style="{StaticResource Card}" VerticalAlignment="Top">
+                        <StackPanel>
+                            <TextBlock Text="Edit Brand" Style="{StaticResource H2}" />
+                            <TextBlock Text="Code" Style="{StaticResource FieldLabel}" />
+                            <TextBox Text="{Binding Editing.Code, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
+                            <TextBlock Text="Name" Style="{StaticResource FieldLabel}" />
+                            <TextBox Text="{Binding Editing.Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
+                            <CheckBox Content="Active" IsChecked="{Binding Editing.IsActive}" />
+                            <TextBlock Text="Turning a brand off hides it from Packing and New Order. Stock already packed under it stays visible on the Stock screen until it is sold."
+                                       Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                            <StackPanel Style="{StaticResource FormButtons}">
+                                <Button Content="New" Command="{Binding NewCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" />
+                                <Button Content="Save" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButton}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
             <!-- Accessories -->
             <TabItem Header="Accessories" DataContext="{Binding AccessoriesTab}">
                 <Grid Margin="0,12,0,0">

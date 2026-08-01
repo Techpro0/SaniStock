@@ -46,12 +46,14 @@ var user = new UserContext { Username = "demo", Role = UserRole.Admin, IsAuthent
 var stock = new StockService(db, user);
 var numbers = new NumberSequenceService(db);
 var master = new MasterDataService(db);
+var allocations = new StockAllocationService(db, stock);
 var production = new ProductionService(db, stock, user);
+var packing = new PackingService(db, stock, user);
 var accReceipts = new AccessoryReceiptService(db, stock, user);
 var green = new GreenPieceService(db, stock, user);
 var raw = new RawMaterialService(db, stock, user);
-var orders = new OrderService(db, stock, numbers, user);
-var dispatch = new DispatchService(db, stock, numbers, user);
+var orders = new OrderService(db, stock, allocations, numbers, user);
+var dispatch = new DispatchService(db, stock, allocations, numbers, user);
 
 int PtId(string code) => db.ProductTypes.Where(p => p.Code == code).Select(p => p.Id).First();
 int GradeId(string name) => db.Grades.Where(g => g.Name == name).Select(g => g.Id).First();
@@ -69,6 +71,17 @@ int Colour(string name, string hex)
 }
 foreach (var (n, h) in new[] { ("White", "#FFFFFF"), ("Ivory", "#FFFFF0"), ("Pergamon", "#EAE3D2"), ("Black", "#1C1C1C"), ("Sky Blue", "#87CEEB") })
     Colour(n, h);
+
+// The same ware is packed and sold under several brands. Three is enough to show the Stock
+// screen's per-brand columns and to let an order want a brand the factory has not packed yet.
+var brands = new Dictionary<string, int>();
+int BrandRow(string code, string name)
+{
+    var e = db.Brands.FirstOrDefault(b => b.Code == code);
+    return brands[name] = e?.Id ?? master.SaveBrand(new Brand { Code = code, Name = name, IsActive = true }).Id;
+}
+foreach (var (c, n) in new[] { ("BR-AQUA", "Aquaria"), ("BR-CERA", "Ceramica"), ("BR-VITRA", "Vitrona") })
+    BrandRow(c, n);
 
 var acc = new Dictionary<string, int>();
 int Acc(string code, string name)
@@ -155,6 +168,26 @@ Produce("Table Top Basin", g1, "Sky Blue", 45, 19);
 Produce("Wall Mounted Urinal", g1, "White", 100, 18);
 Produce("Dual Flush Cistern", g1, "White", 220, 18);
 
+// Pack part of what was produced, so the Stock screen shows a realistic mix of packed and
+// not-yet-packed ware rather than everything sitting in one bucket. Packing is also where brand
+// enters: one action can be split across brands, which is what fills the per-brand columns.
+void Pack(string itemName, int gradeId, string colour, int daysAgo, params (string Brand, decimal Qty)[] split) =>
+    packing.Post(new PackingInput(today.AddDays(-daysAgo), item[itemName], gradeId, colours[colour],
+        split.Select(s => new PackingBrandLine(brands[s.Brand], s.Qty)).ToList(), "Demo packing"));
+
+// Split across all three brands in one go — the worked example from the brand feature.
+Pack("One Piece Closet", g1, "White", 17, ("Aquaria", 70), ("Ceramica", 50), ("Vitrona", 30));
+Pack("One Piece Closet", g1, "Ivory", 17, ("Aquaria", 40), ("Ceramica", 20));
+Pack("One Piece Closet", g2, "White", 17, ("Aquaria", 40));      // the 2nd-grade stock is all packed
+Pack("Two Piece Closet", g1, "White", 16, ("Aquaria", 80), ("Vitrona", 40));
+Pack("Two Piece Closet", g1, "Ivory", 16, ("Ceramica", 90));     // this colour is Ceramica-only
+Pack("Wall Hung EWC", g1, "White", 16, ("Aquaria", 60), ("Ceramica", 40));
+Pack("Counter Wash Basin", g1, "White", 15, ("Aquaria", 110));
+Pack("Pedestal Wash Basin", g1, "White", 15, ("Vitrona", 140));  // fully packed, one brand
+Pack("Table Top Basin", g1, "Black", 14, ("Ceramica", 40));
+Pack("Wall Mounted Urinal", g1, "White", 14, ("Aquaria", 70));
+Pack("Dual Flush Cistern", g1, "White", 14, ("Aquaria", 60), ("Ceramica", 60));
+
 foreach (var a in acc.Values)
     accReceipts.Post(new AccessoryReceiptInput(today.AddDays(-26), a, 500, "Demo opening stock"));
 
@@ -166,24 +199,25 @@ raw.Post(new RawMaterialInput(today.AddDays(-10), rawMat["Ball Clay"], IsIssue: 
 green.Post(new GreenPieceInput(today.AddDays(-9), item["One Piece Closet"], colours["White"], IsIssue: false, 60, "Cast today"));
 green.Post(new GreenPieceInput(today.AddDays(-8), item["One Piece Closet"], colours["White"], IsIssue: true, 25, "Sent to kiln"));
 
-OrderLineInput Line(string itemName, int gradeId, string colour, decimal qty, params int[] excludeAcc)
-    => new(item[itemName], gradeId, colours[colour], qty, excludeAcc.Length > 0 ? excludeAcc : null);
+OrderLineInput Line(string itemName, int gradeId, string colour, string brand, decimal qty, params int[] excludeAcc)
+    => new(item[itemName], gradeId, colours[colour], brands[brand], qty,
+        excludeAcc.Length > 0 ? excludeAcc : null);
 
 // 1) Booked, awaiting dispatch — bundled accessories auto-reserved.
 orders.Book(new OrderInput(party["Shreeji Sanitary Wares"], today.AddDays(-6), $"{DemoTag} standard site order",
-    new[] { Line("One Piece Closet", g1, "White", 50), Line("Counter Wash Basin", g1, "White", 30) },
+    new[] { Line("One Piece Closet", g1, "White", "Aquaria", 50), Line("Counter Wash Basin", g1, "White", "Aquaria", 30) },
     Array.Empty<OrderAccessoryLineInput>()));
 
 // 2) Partially dispatched (40 ordered, ship 20 now).
 var order2 = orders.Book(new OrderInput(party["Deep Ceramics"], today.AddDays(-5), $"{DemoTag} split delivery",
-    new[] { Line("Two Piece Closet", g1, "Ivory", 40) }, Array.Empty<OrderAccessoryLineInput>()));
+    new[] { Line("Two Piece Closet", g1, "Ivory", "Ceramica", 40) }, Array.Empty<OrderAccessoryLineInput>()));
 dispatch.Dispatch(new DispatchInput(order2.Id, today.AddDays(-3), "First lorry",
     new[] { new DispatchLineInput(order2.Lines.Single().Id, 20) },
     order2.AccessoryLines.Select(a => new DispatchAccessoryLineInput(a.Id, 20)).ToList()));
 
 // 3) Fully dispatched.
 var order3 = orders.Book(new OrderInput(party["Royal Bath Studio"], today.AddDays(-5), $"{DemoTag} showroom stock",
-    new[] { Line("Pedestal Wash Basin", g1, "White", 25), Line("Wall Hung EWC", g1, "White", 15) },
+    new[] { Line("Pedestal Wash Basin", g1, "White", "Vitrona", 25), Line("Wall Hung EWC", g1, "White", "Aquaria", 15) },
     Array.Empty<OrderAccessoryLineInput>()));
 dispatch.Dispatch(new DispatchInput(order3.Id, today.AddDays(-2), "Delivered in full",
     order3.Lines.Select(l => new DispatchLineInput(l.Id, l.QuantityOrdered)).ToList(),
@@ -191,17 +225,29 @@ dispatch.Dispatch(new DispatchInput(order3.Id, today.AddDays(-2), "Delivered in 
 
 // 4) Booked with a per-line accessory EXCLUDED (Bottle Trap left off this order).
 orders.Book(new OrderInput(party["Metro Tiles & Sanitary"], today.AddDays(-2), $"{DemoTag} customer supplies own traps",
-    new[] { Line("Table Top Basin", g1, "Black", 20, acc["Bottle Trap"]) }, Array.Empty<OrderAccessoryLineInput>()));
+    new[] { Line("Table Top Basin", g1, "Black", "Ceramica", 20, acc["Bottle Trap"]) }, Array.Empty<OrderAccessoryLineInput>()));
 
 // 5) Cancelled order (reservation released for item + accessories).
 var order5 = orders.Book(new OrderInput(party["Kumar Hardware"], today.AddDays(-4), $"{DemoTag} tentative",
-    new[] { Line("Wall Mounted Urinal", g1, "White", 30) },
+    new[] { Line("Wall Mounted Urinal", g1, "White", "Aquaria", 30) },
     new[] { new OrderAccessoryLineInput(acc["Connection Pipe"], 30) }));
 orders.Cancel(order5.Id, "Customer postponed project");
 
 // 6) Shortfall demo — books far more than produced, driving Available negative.
 orders.Book(new OrderInput(party["Shreeji Sanitary Wares"], today.AddDays(-1), $"{DemoTag} large upcoming project",
-    new[] { Line("Wall Hung EWC", g1, "Pergamon", 100) }, Array.Empty<OrderAccessoryLineInput>()));
+    new[] { Line("Wall Hung EWC", g1, "Pergamon", "Aquaria", 100) }, Array.Empty<OrderAccessoryLineInput>()));
+
+// 7) Grade-fallback demo — more 1st-grade White closets than are free, so the booking exhausts
+//    Aquaria's packed 1st grade, then the shared unpacked pool, and is topped up from the 40
+//    packed 2nd-grade pieces (also Aquaria).
+orders.Book(new OrderInput(party["Deep Ceramics"], today, $"{DemoTag} 1st grade topped up from 2nd",
+    new[] { Line("One Piece Closet", g1, "White", "Aquaria", 180) }, Array.Empty<OrderAccessoryLineInput>()));
+
+// 8) Shared-pool demo — Vitrona has nothing packed in Ivory (all 90 packed pieces are Ceramica's,
+//    and it can never touch those), so this draws entirely from the shared unpacked pool. Ware in
+//    the pool has no brand yet, so any order may claim it and pack it its own way later.
+orders.Book(new OrderInput(party["Kumar Hardware"], today, $"{DemoTag} covered from the unpacked pool",
+    new[] { Line("Two Piece Closet", g1, "Ivory", "Vitrona", 25) }, Array.Empty<OrderAccessoryLineInput>()));
 
 PrintSummary(db);
 
@@ -210,6 +256,7 @@ static void PrintSummary(SaniStockDbContext db)
     Console.WriteLine("Demo data in database:");
     Console.WriteLine($"  Product types : {db.ProductTypes.Count()}");
     Console.WriteLine($"  Colours       : {db.Colours.Count()}");
+    Console.WriteLine($"  Brands        : {db.Brands.Count()}");
     Console.WriteLine($"  Items         : {db.Items.Count()}");
     Console.WriteLine($"  Accessories   : {db.Accessories.Count()}");
     Console.WriteLine($"  Bundle recipes: {db.ItemAccessoryDefaults.Count()}");

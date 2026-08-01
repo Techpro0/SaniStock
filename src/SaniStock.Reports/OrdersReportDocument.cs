@@ -84,6 +84,7 @@ public sealed class OrdersReportDocument : IDocument
                 cols.RelativeColumn(4f);    // Item / Accessory
                 cols.RelativeColumn(1.5f);  // Grade
                 cols.RelativeColumn(1.5f);  // Colour
+                cols.RelativeColumn(2f);    // Brand
                 cols.RelativeColumn(1.5f);  // Ordered
                 cols.RelativeColumn(1.5f);  // Sent
                 cols.RelativeColumn(1.5f);  // Left to Send
@@ -96,7 +97,7 @@ public sealed class OrdersReportDocument : IDocument
             // overflow for an order taller than one page.
             table.Header(header =>
             {
-                header.Cell().ColumnSpan(6).Element(c => RenderOrderHeaderBlock(c, order));
+                header.Cell().ColumnSpan(7).Element(c => RenderOrderHeaderBlock(c, order));
 
                 void H(string text, bool right = false)
                 {
@@ -107,6 +108,7 @@ public sealed class OrdersReportDocument : IDocument
                 H("Item / Accessory");
                 H("Grade");
                 H("Colour");
+                H("Brand");
                 H("Ordered", true);
                 H("Sent", true);
                 H("Left to Send", true);
@@ -126,6 +128,7 @@ public sealed class OrdersReportDocument : IDocument
                 C(r.ItemOrAccessory);
                 C(r.Grade);
                 C(r.Colour);
+                C(r.Brand);
                 C(r.Ordered.ToString("0.###"), true);
                 C(r.Dispatched.ToString("0.###"), true);
                 C(r.Pending.ToString("0.###"), true);

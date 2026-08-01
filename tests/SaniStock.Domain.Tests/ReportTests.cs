@@ -12,10 +12,10 @@ public class ReportTests
         // 20 on hand, 50 reserved across two parties => shortfall of 30.
         h.Production.Post(new ProductionInput(DateTime.Today, h.ItemA, h.Grade1, h.White, 20, null));
         h.Orders.Book(new OrderInput(h.PartyX, DateTime.Today, null,
-            new[] { new OrderLineInput(h.ItemA, h.Grade1, h.White, 30) },
+            new[] { new OrderLineInput(h.ItemA, h.Grade1, h.White, h.BrandA, 30) },
             Array.Empty<OrderAccessoryLineInput>()));
         h.Orders.Book(new OrderInput(h.PartyY, DateTime.Today, null,
-            new[] { new OrderLineInput(h.ItemA, h.Grade1, h.White, 20) },
+            new[] { new OrderLineInput(h.ItemA, h.Grade1, h.White, h.BrandA, 20) },
             Array.Empty<OrderAccessoryLineInput>()));
 
         var shortfall = h.Reports.GetShortfall();
@@ -36,7 +36,7 @@ public class ReportTests
         using var h = new TestHarness();
         h.Production.Post(new ProductionInput(DateTime.Today, h.ItemA, h.Grade1, h.White, 100, null));
         h.Orders.Book(new OrderInput(h.PartyX, DateTime.Today, null,
-            new[] { new OrderLineInput(h.ItemA, h.Grade1, h.White, 40) },
+            new[] { new OrderLineInput(h.ItemA, h.Grade1, h.White, h.BrandA, 40) },
             Array.Empty<OrderAccessoryLineInput>()));
 
         Assert.Empty(h.Reports.GetShortfall());
@@ -48,7 +48,7 @@ public class ReportTests
         using var h = new TestHarness();
         h.Production.Post(new ProductionInput(DateTime.Today, h.ItemA, h.Grade1, h.White, 100, null));
         var order = h.Orders.Book(new OrderInput(h.PartyX, DateTime.Today, null,
-            new[] { new OrderLineInput(h.ItemA, h.Grade1, h.White, 30) },
+            new[] { new OrderLineInput(h.ItemA, h.Grade1, h.White, h.BrandA, 30) },
             Array.Empty<OrderAccessoryLineInput>()));
         h.Dispatch.Dispatch(new DispatchInput(order.Id, DateTime.Today, null,
             new[] { new DispatchLineInput(order.Lines.Single().Id, 10) },
@@ -65,10 +65,10 @@ public class ReportTests
     {
         using var h = new TestHarness();
         var o1 = h.Orders.Book(new OrderInput(h.PartyX, new DateTime(2026, 1, 5), null,
-            new[] { new OrderLineInput(h.ItemA, h.Grade1, h.White, 5) },
+            new[] { new OrderLineInput(h.ItemA, h.Grade1, h.White, h.BrandA, 5) },
             Array.Empty<OrderAccessoryLineInput>()));
         var o2 = h.Orders.Book(new OrderInput(h.PartyX, new DateTime(2026, 2, 5), null,
-            new[] { new OrderLineInput(h.ItemA, h.Grade1, h.White, 5) },
+            new[] { new OrderLineInput(h.ItemA, h.Grade1, h.White, h.BrandA, 5) },
             Array.Empty<OrderAccessoryLineInput>()));
 
         Assert.Equal("ORD-2026-0001", o1.OrderNo);

@@ -19,6 +19,7 @@
             <!-- View-model to view mapping (implicit DataTemplates) -->
             <DataTemplate DataType="{x:Type vm:DashboardViewModel}"><views:DashboardView /></DataTemplate>
             <DataTemplate DataType="{x:Type vm:ProductionViewModel}"><views:ProductionView /></DataTemplate>
+            <DataTemplate DataType="{x:Type vm:PackingViewModel}"><views:PackingView /></DataTemplate>
             <DataTemplate DataType="{x:Type vm:StockViewModel}"><views:StockView /></DataTemplate>
             <DataTemplate DataType="{x:Type vm:OrderBookingViewModel}"><views:OrderBookingView /></DataTemplate>
             <DataTemplate DataType="{x:Type vm:OrderDispatchViewModel}"><views:OrderDispatchView /></DataTemplate>

@@ -21,7 +21,7 @@ public class AccessoryBundlingTests
         // Recipe: 1x Pillar Cock and 2x Seat Cover per item unit.
         h.Master.SetItemAccessoryDefaults(h.ItemA, new[] { (h.Acc1, 1m), (h.Acc2, 2m) });
 
-        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, 10));
+        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandA, 10));
 
         // Two accessory lines were auto-created, each tied to the item line.
         var itemLineId = order.Lines.Single().Id;
@@ -44,7 +44,7 @@ public class AccessoryBundlingTests
     public void Item_without_defaults_books_with_no_accessory_lines()
     {
         using var h = new TestHarness();
-        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, 5));
+        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandA, 5));
         Assert.Empty(order.AccessoryLines);
     }
 
@@ -58,7 +58,7 @@ public class AccessoryBundlingTests
 
         // Book the item but exclude the Seat Cover (Acc2) for this order line.
         var input = new OrderInput(h.PartyX, DateTime.Today, null,
-            new[] { new OrderLineInput(h.ItemA, h.Grade1, h.White, 12, new[] { h.Acc2 }) },
+            new[] { new OrderLineInput(h.ItemA, h.Grade1, h.White, h.BrandA, 12, new[] { h.Acc2 }) },
             Array.Empty<OrderAccessoryLineInput>());
         var order = h.Orders.Book(input);
 
@@ -77,11 +77,11 @@ public class AccessoryBundlingTests
 
         // First order excludes Acc2...
         h.Orders.Book(new OrderInput(h.PartyX, DateTime.Today, null,
-            new[] { new OrderLineInput(h.ItemA, h.Grade1, h.White, 4, new[] { h.Acc2 }) },
+            new[] { new OrderLineInput(h.ItemA, h.Grade1, h.White, h.BrandA, 4, new[] { h.Acc2 }) },
             Array.Empty<OrderAccessoryLineInput>()));
 
         // ...the next order (no exclusions) still gets both — the recipe was not mutated.
-        var second = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, 4));
+        var second = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandA, 4));
         Assert.Equal(2, second.AccessoryLines.Count);
         Assert.Equal(2, h.Master.GetItemAccessoryDefaults(h.ItemA).Count);
     }
@@ -96,7 +96,7 @@ public class AccessoryBundlingTests
         h.Production.Post(new ProductionInput(DateTime.Today, h.ItemA, h.Grade1, h.White, 100, null));
         h.AccessoryReceipts.Post(new AccessoryReceiptInput(DateTime.Today, h.Acc1, 100, null));
 
-        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, 30));
+        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandA, 30));
         var itemLineId = order.Lines.Single().Id;
         var accLineId = order.AccessoryLines.Single().Id;
 
@@ -116,7 +116,7 @@ public class AccessoryBundlingTests
         h.Master.SetItemAccessoryDefaults(h.ItemA, new[] { (h.Acc1, 1m) });
         h.Production.Post(new ProductionInput(DateTime.Today, h.ItemA, h.Grade1, h.White, 100, null));
         h.AccessoryReceipts.Post(new AccessoryReceiptInput(DateTime.Today, h.Acc1, 100, null));
-        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, 30));
+        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandA, 30));
         var accLineId = order.AccessoryLines.Single().Id;
 
         // Cannot over-ship the accessory beyond its pending 30.
@@ -140,7 +140,7 @@ public class AccessoryBundlingTests
         h.AccessoryReceipts.Post(new AccessoryReceiptInput(DateTime.Today, h.Acc1, 100, null));
         h.AccessoryReceipts.Post(new AccessoryReceiptInput(DateTime.Today, h.Acc2, 100, null));
 
-        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, 20));
+        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandA, 20));
         Assert.Equal(20, h.AccessoryBalance(h.Acc1).Reserved);
         Assert.Equal(40, h.AccessoryBalance(h.Acc2).Reserved);
 
@@ -182,8 +182,9 @@ public class AccessoryBundlingTests
 
     // ---- Helpers -------------------------------------------------------------
 
-    private static OrderInput SingleLineOrder(int partyId, int itemId, int gradeId, int colourId, decimal qty) =>
+    private static OrderInput SingleLineOrder(int partyId, int itemId, int gradeId, int colourId,
+        int brandId, decimal qty) =>
         new(partyId, DateTime.Today, null,
-            new[] { new OrderLineInput(itemId, gradeId, colourId, qty) },
+            new[] { new OrderLineInput(itemId, gradeId, colourId, brandId, qty) },
             Array.Empty<OrderAccessoryLineInput>());
 }

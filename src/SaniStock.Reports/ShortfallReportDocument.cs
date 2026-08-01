@@ -44,7 +44,8 @@ public sealed class ShortfallReportDocument : IDocument
                         row.RelativeItem(4).Text($"{r.ItemCode} — {r.ItemName}").SemiBold();
                         row.RelativeItem(2).Text($"Grade {r.Grade}");
                         row.RelativeItem(2).Text($"Colour {r.Colour}");
-                        row.RelativeItem(2).AlignRight().Text($"In Stock {r.OnHand:0.###}");
+                        row.RelativeItem(3).AlignRight()
+                            .Text($"In Stock {r.OnHand:0.###} ({r.PackedOnHand:0.###} packed)");
                         row.RelativeItem(2).AlignRight().Text($"Booked {r.Reserved:0.###}");
                         row.RelativeItem(2).AlignRight().Text($"Make {r.Shortfall:0.###}")
                             .Bold().FontColor(Colors.Red.Darken2);
@@ -60,19 +61,29 @@ public sealed class ShortfallReportDocument : IDocument
                                 c.RelativeColumn(4);
                                 c.RelativeColumn(2);
                                 c.RelativeColumn(2);
+                                c.RelativeColumn(2);
+                                c.RelativeColumn(2);
                             });
                             t.Header(h =>
                             {
                                 h.Cell().Element(ReportLayout.HeaderCell).Text("Order No").SemiBold();
                                 h.Cell().Element(ReportLayout.HeaderCell).Text("Customer").SemiBold();
+                                h.Cell().Element(ReportLayout.HeaderCell).Text("Brand").SemiBold();
                                 h.Cell().Element(ReportLayout.HeaderCell).AlignRight().Text("Order Date").SemiBold();
+                                h.Cell().Element(ReportLayout.HeaderCell).AlignRight().Text("Ordered As").SemiBold();
                                 h.Cell().Element(ReportLayout.HeaderCell).AlignRight().Text("Waiting Qty").SemiBold();
                             });
                             foreach (var d in r.Drivers)
                             {
                                 t.Cell().Element(ReportLayout.BodyCell).Text(d.OrderNo);
                                 t.Cell().Element(ReportLayout.BodyCell).Text(d.Party);
+                                // Context on the demand only — you cannot produce "for" a brand;
+                                // new ware lands unpacked and picks up its brand at packing.
+                                t.Cell().Element(ReportLayout.BodyCell).Text(d.Brand);
                                 t.Cell().Element(ReportLayout.BodyCell).AlignRight().Text(d.OrderDate.ToString("dd-MMM-yyyy"));
+                                // Differs from the row's grade when a higher grade was met from this stock.
+                                t.Cell().Element(ReportLayout.BodyCell).AlignRight()
+                                    .Text(d.OrderedGrade == r.Grade ? "—" : $"{d.OrderedGrade} grade");
                                 t.Cell().Element(ReportLayout.BodyCell).AlignRight().Text(d.PendingQuantity.ToString("0.###"));
                             }
                         });

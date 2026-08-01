@@ -63,6 +63,7 @@ public partial class App : Application
         // Screens (fresh instance per navigation so data reloads cleanly)
         services.AddTransient<DashboardViewModel>();
         services.AddTransient<ProductionViewModel>();
+        services.AddTransient<PackingViewModel>();
         services.AddTransient<StockViewModel>();
         services.AddTransient<OrderBookingViewModel>();
         services.AddTransient<OrderDispatchViewModel>();

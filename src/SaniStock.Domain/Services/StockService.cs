@@ -25,35 +25,68 @@ public class StockService
 
     // ---- Finished goods ------------------------------------------------------
 
-    /// <summary>Finds the balance row for a key, checking the change-tracker first, else creating it.</summary>
-    public StockBalance GetOrCreateFinishedBalance(int itemId, int gradeId, int colourId)
+    /// <summary>
+    /// Finds the balance row for a key, checking the change-tracker first. Returns null when the
+    /// combination has never been stocked — use this for read-only checks so a failed validation
+    /// never leaves an empty balance row staged.
+    /// <para>
+    /// <paramref name="brandId"/> null selects the shared unpacked pool for the item+grade+colour;
+    /// a brand id selects that brand's packed stock. They are different rows and never mix.
+    /// </para>
+    /// </summary>
+    public StockBalance? FindFinishedBalance(int itemId, int gradeId, int colourId, int? brandId = null)
     {
         var local = _db.StockBalances.Local
-            .FirstOrDefault(x => x.ItemId == itemId && x.GradeId == gradeId && x.ColourId == colourId);
+            .FirstOrDefault(x => x.ItemId == itemId && x.GradeId == gradeId && x.ColourId == colourId
+                                 && x.BrandId == brandId);
         if (local != null) return local;
 
-        var existing = _db.StockBalances
-            .FirstOrDefault(x => x.ItemId == itemId && x.GradeId == gradeId && x.ColourId == colourId);
+        return _db.StockBalances
+            .FirstOrDefault(x => x.ItemId == itemId && x.GradeId == gradeId && x.ColourId == colourId
+                                 && x.BrandId == brandId);
+    }
+
+    /// <summary>Finds the balance row for a key, checking the change-tracker first, else creating it.</summary>
+    public StockBalance GetOrCreateFinishedBalance(int itemId, int gradeId, int colourId, int? brandId = null)
+    {
+        var existing = FindFinishedBalance(itemId, gradeId, colourId, brandId);
         if (existing != null) return existing;
 
-        var created = new StockBalance { ItemId = itemId, GradeId = gradeId, ColourId = colourId };
+        var created = new StockBalance
+        {
+            ItemId = itemId,
+            GradeId = gradeId,
+            ColourId = colourId,
+            BrandId = brandId
+        };
         _db.StockBalances.Add(created);
         return created;
     }
 
     /// <summary>
     /// Appends a finished-goods movement and applies its signed deltas to the cached balance.
-    /// Does not save; the caller controls the transaction boundary.
+    /// On-hand is moved per bucket: production adds to raw, packing shifts raw to packed, dispatch
+    /// removes from both. Does not save; the caller controls the transaction boundary.
+    /// <para>
+    /// One call touches one balance row, identified by item+grade+colour+brand. An action spanning
+    /// the unpacked pool and a brand's packed stock — packing, its reversal, a dispatch that has to
+    /// fall back to the sibling row — makes two calls and writes two movements.
+    /// </para>
     /// </summary>
-    public void ApplyFinished(int itemId, int gradeId, int colourId, StockMovementType type,
-        decimal deltaOnHand, decimal deltaReserved, DateTime date,
+    public void ApplyFinished(int itemId, int gradeId, int colourId, int? brandId, StockMovementType type,
+        decimal deltaRawOnHand, decimal deltaPackedOnHand, decimal deltaReserved, DateTime date,
         string? sourceType, int? sourceId, string? remarks)
     {
-        var bal = GetOrCreateFinishedBalance(itemId, gradeId, colourId);
+        GuardBucketBrandInvariant(brandId, deltaRawOnHand, deltaPackedOnHand);
+
+        var bal = GetOrCreateFinishedBalance(itemId, gradeId, colourId, brandId);
         var beforeOnHand = bal.OnHand;
+        var beforeRaw = bal.RawOnHand;
+        var beforePacked = bal.PackedOnHand;
         var beforeReserved = bal.Reserved;
 
-        bal.OnHand += deltaOnHand;
+        bal.RawOnHand += deltaRawOnHand;
+        bal.PackedOnHand += deltaPackedOnHand;
         bal.Reserved += deltaReserved;
 
         _db.StockMovements.Add(new StockMovement
@@ -62,8 +95,10 @@ public class StockService
             ItemId = itemId,
             GradeId = gradeId,
             ColourId = colourId,
+            BrandId = brandId,
             Type = type,
-            DeltaOnHand = deltaOnHand,
+            DeltaRawOnHand = deltaRawOnHand,
+            DeltaPackedOnHand = deltaPackedOnHand,
             DeltaReserved = deltaReserved,
             SourceType = sourceType,
             SourceId = sourceId,
@@ -73,9 +108,47 @@ public class StockService
         });
 
         AddAudit(type.ToString(), "StockBalance", sourceId,
-            $"Item {itemId}/G{gradeId}/C{colourId}: OnHand {beforeOnHand}->{bal.OnHand}, Reserved {beforeReserved}->{bal.Reserved}",
+            $"Item {itemId}/G{gradeId}/C{colourId}/B{(brandId?.ToString() ?? "-")}: " +
+            $"Unpacked {beforeRaw}->{bal.RawOnHand}, " +
+            $"Packed {beforePacked}->{bal.PackedOnHand}, Reserved {beforeReserved}->{bal.Reserved}",
             beforeOnHand, bal.OnHand);
     }
+
+    /// <summary>
+    /// Upholds the split that brand imposes on a balance row: unpacked stock is brand-less and
+    /// shared, packed stock always belongs to a brand. A movement that would put packed quantity on
+    /// the brand-less row, or unpacked quantity on a brand's row, is a bug in a calling service —
+    /// it would make the two rows disagree about where the goods physically are, and no report
+    /// could reconcile them afterwards.
+    /// <para>
+    /// Checked here, at the single place movements are written, rather than as a database check
+    /// constraint: balances are a cache that <see cref="ReconcileAll"/> rewrites wholesale, and a
+    /// constraint would turn a ledger anomaly into a crash during the very repair meant to expose
+    /// it. Reserved is unconstrained — both rows legitimately hold reservations.
+    /// </para>
+    /// </summary>
+    private static void GuardBucketBrandInvariant(int? brandId, decimal deltaRawOnHand, decimal deltaPackedOnHand)
+    {
+        if (brandId is null && deltaPackedOnHand != 0)
+            throw new DomainException(
+                "Packed stock must belong to a brand: a brand-less stock movement cannot change the packed " +
+                "quantity. Post the packed side of the movement against the brand it was packed under.");
+
+        if (brandId is not null && deltaRawOnHand != 0)
+            throw new DomainException(
+                "Unpacked stock is shared across brands: a brand's stock movement cannot change the unpacked " +
+                "quantity. Post the unpacked side of the movement against the brand-less pool.");
+    }
+
+    // ---- Bucket math ---------------------------------------------------------
+
+    /// <summary>
+    /// Unreserved quantity on a single balance row. Because brand splits packed stock onto its own
+    /// row, each row holds exactly one bucket and exactly the reservations drawn from it, so this
+    /// is a plain subtraction — no assumption about which bucket a reservation "really" consumed.
+    /// </summary>
+    public static decimal FreeOn(StockBalance? bal) =>
+        bal is null ? 0m : Math.Max(0m, bal.OnHand - bal.Reserved);
 
     // ---- Accessories ---------------------------------------------------------
 
@@ -147,25 +220,35 @@ public class StockService
     /// <summary>
     /// Rebuilds every cached balance from the immutable ledgers. Used after a restore
     /// or to verify integrity. Returns the number of balance rows written.
+    /// <para>
+    /// The two on-hand buckets rebuild independently, each as the running sum of its own signed
+    /// delta, so no knowledge of packing or allocation order is needed here: production carries
+    /// +raw, packing carries -raw/+packed, and dispatch carries whatever split it actually drew.
+    /// Grouping includes brand, so the per-brand packed split rebuilds from the ledger too — the
+    /// two legs of a packing entry land on their own keys and stay there.
+    /// </para>
     /// </summary>
     public int ReconcileAll()
     {
         var finished = _db.StockMovements
-            .GroupBy(m => new { m.ItemId, m.GradeId, m.ColourId })
+            .GroupBy(m => new { m.ItemId, m.GradeId, m.ColourId, m.BrandId })
             .Select(g => new
             {
                 g.Key.ItemId,
                 g.Key.GradeId,
                 g.Key.ColourId,
-                OnHand = g.Sum(x => x.DeltaOnHand),
+                g.Key.BrandId,
+                RawOnHand = g.Sum(x => x.DeltaRawOnHand),
+                PackedOnHand = g.Sum(x => x.DeltaPackedOnHand),
                 Reserved = g.Sum(x => x.DeltaReserved)
             })
             .ToList();
 
         foreach (var f in finished)
         {
-            var bal = GetOrCreateFinishedBalance(f.ItemId, f.GradeId, f.ColourId);
-            bal.OnHand = f.OnHand;
+            var bal = GetOrCreateFinishedBalance(f.ItemId, f.GradeId, f.ColourId, f.BrandId);
+            bal.RawOnHand = f.RawOnHand;
+            bal.PackedOnHand = f.PackedOnHand;
             bal.Reserved = f.Reserved;
         }
 
