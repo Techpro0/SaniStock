@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SaniStock.Data;
 
@@ -10,9 +11,11 @@ using SaniStock.Data;
 namespace SaniStock.Data.Migrations
 {
     [DbContext(typeof(SaniStockDbContext))]
-    partial class SaniStockDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260801164153_AddGreenRawReversal")]
+    partial class AddGreenRawReversal
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.11");
@@ -283,17 +286,11 @@ namespace SaniStock.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<bool>("IsReversal")
-                        .HasColumnType("INTEGER");
-
                     b.Property<int>("OrderId")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Remarks")
                         .HasColumnType("TEXT");
-
-                    b.Property<int?>("ReversesEntryId")
-                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 

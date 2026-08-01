@@ -88,7 +88,9 @@ public partial class OrderDispatchViewModel : ViewModelBase
         using var scope = _scopes.Create();
         var lines =
             from l in scope.Db.OrderLines
-            where l.OrderId == order.Id
+            // Lines superseded by an edit are kept at zero quantity rather than removed; there is
+            // nothing to send against them.
+            where l.OrderId == order.Id && l.QuantityOrdered > 0
             join i in scope.Db.Items on l.ItemId equals i.Id
             join g in scope.Db.Grades on l.GradeId equals g.Id
             join c in scope.Db.Colours on l.ColourId equals c.Id

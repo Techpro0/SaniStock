@@ -75,11 +75,30 @@ public class MasterDataService
     }
 
     // ---- Grade ----
+
+    /// <summary>
+    /// Saves a grade, refusing to switch off the last active one.
+    /// <para>
+    /// Grades are load-bearing in a way the other lists are not: production, packing and every
+    /// order line must name one, and <c>StockAllocationService.ResolveGradeChain</c> derives the
+    /// cross-grade borrowing chain from the active grades' sort order. With none left, no stock
+    /// could be posted at all — so this mirrors the "last active administrator" rule in
+    /// <see cref="AuthService"/>.
+    /// </para>
+    /// Deleting a grade while others remain is allowed, but note it silently re-points the
+    /// borrowing chain, since that chain is always "the two lowest sort orders still active".
+    /// </summary>
     public Grade SaveGrade(Grade g)
     {
         g.Name = Require(g.Name, "Grade name");
         if (_db.Grades.Any(x => x.Name == g.Name && x.Id != g.Id))
             throw new DomainException($"Grade '{g.Name}' already exists.");
+
+        if (!g.IsActive && !_db.Grades.Any(x => x.IsActive && x.Id != g.Id))
+            throw new DomainException(
+                "This is the last active grade, so it cannot be deleted — every item of stock and " +
+                "every order line has to have a grade. Add another grade first.");
+
         Upsert(_db.Grades, g);
         _db.SaveChanges();
         return g;
@@ -107,11 +126,15 @@ public class MasterDataService
 
     // ---- Item accessory defaults (bundling recipe) ----
 
-    /// <summary>The active default-accessory rows for an item, accessory name/code included.</summary>
+    /// <summary>
+    /// The item's current recipe — the <em>active</em> rows only, accessory name/code included.
+    /// Rows dropped from the recipe are deactivated rather than removed, so they are deliberately
+    /// not returned here: to every caller the recipe reads exactly as the user last left it.
+    /// </summary>
     public List<ItemAccessoryDefault> GetItemAccessoryDefaults(int itemId) =>
         _db.ItemAccessoryDefaults
             .Include(x => x.Accessory)
-            .Where(x => x.ItemId == itemId)
+            .Where(x => x.ItemId == itemId && x.IsActive)
             .OrderBy(x => x.Accessory!.Name)
             .ToList();
 
@@ -119,6 +142,13 @@ public class MasterDataService
     /// Replaces an item's default-accessory recipe with the supplied set. Each pair must have a
     /// positive quantity and reference an existing accessory; duplicates are rejected. Passing an
     /// empty set clears the recipe (equivalent to "don't include accessories by default").
+    /// <para>
+    /// Dropped rows are <b>deactivated, not removed</b> — nothing in this application deletes a
+    /// row. Reconciling rather than replacing also means an accessory taken out of a recipe and
+    /// later put back reuses its original row, which matters because
+    /// <c>(ItemId, AccessoryId)</c> is a unique pair: a lingering deactivated row would otherwise
+    /// collide with a fresh insert.
+    /// </para>
     /// </summary>
     public void SetItemAccessoryDefaults(int itemId, IReadOnlyList<(int AccessoryId, decimal QtyPerUnit)> defaults)
     {
@@ -136,16 +166,33 @@ public class MasterDataService
                 throw new DomainException("A selected accessory does not exist.");
         }
 
+        // Every row for this item, active or not — a deactivated one is what gets revived when an
+        // accessory is added back to the recipe.
         var existing = _db.ItemAccessoryDefaults.Where(x => x.ItemId == itemId).ToList();
-        _db.ItemAccessoryDefaults.RemoveRange(existing);
+
         foreach (var (accessoryId, qty) in defaults)
-            _db.ItemAccessoryDefaults.Add(new ItemAccessoryDefault
+        {
+            var row = existing.FirstOrDefault(x => x.AccessoryId == accessoryId);
+            if (row is null)
             {
-                ItemId = itemId,
-                AccessoryId = accessoryId,
-                QtyPerUnit = qty,
-                IsActive = true
-            });
+                _db.ItemAccessoryDefaults.Add(new ItemAccessoryDefault
+                {
+                    ItemId = itemId,
+                    AccessoryId = accessoryId,
+                    QtyPerUnit = qty,
+                    IsActive = true
+                });
+            }
+            else
+            {
+                row.QtyPerUnit = qty;
+                row.IsActive = true;
+            }
+        }
+
+        foreach (var row in existing.Where(x => !seen.Contains(x.AccessoryId)))
+            row.IsActive = false;
+
         _db.SaveChanges();
     }
 

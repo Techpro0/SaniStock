@@ -149,9 +149,12 @@ public partial class PackingViewModel : ViewModelBase
                             (IsOverAllocated ? "  —  more than is waiting to be packed" : string.Empty);
     }
 
-    partial void OnPackItemChanged(Item? value) => RefreshSummary();
-    partial void OnPackGradeChanged(Grade? value) => RefreshSummary();
-    partial void OnPackColourChanged(Colour? value) => RefreshSummary();
+    // Deferred, never inline: these fire from a binding write-back, including the one WPF performs
+    // while tearing this screen down on navigation. Querying the database there runs inside the
+    // layout pass. See ViewModelBase.RunAfterLayout.
+    partial void OnPackItemChanged(Item? value) => RunAfterLayout(RefreshSummary);
+    partial void OnPackGradeChanged(Grade? value) => RunAfterLayout(RefreshSummary);
+    partial void OnPackColourChanged(Colour? value) => RunAfterLayout(RefreshSummary);
 
     private void RefreshSummary()
     {

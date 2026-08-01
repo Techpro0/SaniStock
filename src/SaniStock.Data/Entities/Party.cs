@@ -1,7 +1,7 @@
 namespace SaniStock.Data.Entities;
 
 /// <summary>A customer / trading party that places orders.</summary>
-public class Party
+public class Party : IActivatable
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;

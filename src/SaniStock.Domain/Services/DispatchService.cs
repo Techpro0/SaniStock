@@ -231,6 +231,163 @@ public class DispatchService
     }
 
     /// <summary>
+    /// Reverses a dispatch: the goods go back into the exact buckets and brand rows they left from,
+    /// the reservation is re-raised, the order lines and their allocations are un-consumed, and a
+    /// linked reversing note is written. The original note is left untouched (immutable).
+    /// <para>
+    /// <b>How it knows where the goods came from.</b> Not from the dispatch lines — one shipped
+    /// line can span several grades and, within each, a brand's packed stock and the shared
+    /// unpacked pool, which no per-line pair of columns can express. It replays the
+    /// <see cref="StockMovement"/> rows this dispatch wrote and negates them. Those rows already
+    /// carry the exact item+grade+colour+brand and the raw/packed/reserved split, and they are what
+    /// <see cref="StockService.ReconcileAll"/> rebuilds the balances from — so inverting them is
+    /// correct by construction rather than by a second, parallel record that could disagree.
+    /// </para>
+    /// <para>
+    /// <b>Only the most recent live dispatch on an order can be reversed.</b> Restoring the
+    /// allocations means walking them in descending priority and un-consuming — the exact inverse
+    /// of the ascending walk that consumed them. That inverse is only the true one for the last
+    /// dispatch: reversing an earlier one out of turn would give back quantity to whichever
+    /// allocations the *later* dispatch happened to take, silently corrupting which source each
+    /// order line is holding. Reverse them newest-first instead, which is the same discipline
+    /// production and packing reversals already follow.
+    /// </para>
+    /// </summary>
+    public DispatchEntry Reverse(int dispatchEntryId, string? remarks = null)
+    {
+        var original = _db.DispatchEntries
+            .Include(d => d.Lines)
+            .Include(d => d.AccessoryLines)
+            .FirstOrDefault(d => d.Id == dispatchEntryId)
+            ?? throw new DomainException("Dispatch note not found.");
+
+        if (original.IsReversal)
+            throw new DomainException("A reversal note cannot itself be reversed.");
+        if (_db.DispatchEntries.Any(d => d.ReversesEntryId == dispatchEntryId))
+            throw new DomainException($"Dispatch {original.DispatchNo} has already been reversed.");
+
+        // A later note that is still standing (not a reversal, and not itself reversed) has
+        // consumed allocations on top of this one; unwinding out of order would misattribute them.
+        var laterLive = _db.DispatchEntries
+            .Where(d => d.OrderId == original.OrderId && d.Id > original.Id && !d.IsReversal)
+            .Where(d => !_db.DispatchEntries.Any(r => r.ReversesEntryId == d.Id))
+            .OrderBy(d => d.Id)
+            .Select(d => d.DispatchNo)
+            .FirstOrDefault();
+        if (laterLive != null)
+            throw new DomainException(
+                $"Dispatch {original.DispatchNo} cannot be reversed while {laterLive} still stands — " +
+                "it was sent afterwards against the same order. Reverse the later one first.");
+
+        var order = _db.Orders
+            .Include(o => o.Lines)
+            .Include(o => o.AccessoryLines)
+            .FirstOrDefault(o => o.Id == original.OrderId)
+            ?? throw new DomainException("Order not found.");
+
+        var reversal = new DispatchEntry
+        {
+            DispatchNo = _numbers.NextDispatchNo(DateTime.Today.Year),
+            OrderId = original.OrderId,
+            Date = DateTime.Today,
+            DispatchedBy = _user.Username,
+            Remarks = remarks ?? $"Reversal of dispatch {original.DispatchNo}",
+            IsReversal = true,
+            ReversesEntryId = original.Id,
+            CreatedAt = DateTime.Now
+        };
+        // Mirror the shipped lines so the reversing note is a complete record of what went back.
+        foreach (var l in original.Lines)
+            reversal.Lines.Add(new DispatchLine { OrderLineId = l.OrderLineId, Quantity = l.Quantity });
+        foreach (var a in original.AccessoryLines)
+            reversal.AccessoryLines.Add(new DispatchAccessoryLine
+            {
+                OrderAccessoryLineId = a.OrderAccessoryLineId,
+                Quantity = a.Quantity
+            });
+
+        _db.DispatchEntries.Add(reversal);
+        _db.SaveChanges(); // assign ids so the movements can point at the reversing note
+
+        // Put the stock back exactly where it came from, by negating what this dispatch posted.
+        var finishedLegs = _db.StockMovements
+            .Where(m => m.SourceType == "DispatchEntry" && m.SourceId == original.Id)
+            .ToList();
+        foreach (var m in finishedLegs)
+        {
+            _stock.ApplyFinished(m.ItemId, m.GradeId, m.ColourId, m.BrandId,
+                StockMovementType.Adjustment,
+                deltaRawOnHand: -m.DeltaRawOnHand,
+                deltaPackedOnHand: -m.DeltaPackedOnHand,
+                deltaReserved: -m.DeltaReserved,
+                reversal.Date, "DispatchEntry", reversal.Id,
+                $"Reversal of {original.DispatchNo}");
+        }
+
+        var accessoryLegs = _db.AccessoryStockMovements
+            .Where(m => m.SourceType == "DispatchEntry" && m.SourceId == original.Id)
+            .ToList();
+        foreach (var m in accessoryLegs)
+        {
+            _stock.ApplyAccessory(m.AccessoryId, StockMovementType.Adjustment,
+                deltaOnHand: -m.DeltaOnHand, deltaReserved: -m.DeltaReserved,
+                reversal.Date, "DispatchEntry", reversal.Id,
+                $"Reversal of {original.DispatchNo}");
+        }
+
+        // Un-consume the order lines and the allocation rows behind them.
+        foreach (var dl in original.Lines)
+        {
+            var line = order.Lines.First(l => l.Id == dl.OrderLineId);
+            UnconsumeAllocations(line, dl.Quantity);
+            line.QuantityDispatched -= dl.Quantity;
+            line.QuantityReserved += dl.Quantity;
+        }
+        foreach (var da in original.AccessoryLines)
+        {
+            var line = order.AccessoryLines.First(l => l.Id == da.OrderAccessoryLineId);
+            line.QuantityDispatched -= da.Quantity;
+            line.QuantityReserved += da.Quantity;
+        }
+
+        order.Status = ComputeStatus(order);
+        _stock.AddAudit("DispatchReversed", "DispatchEntry", reversal.Id,
+            $"{reversal.DispatchNo} reverses {original.DispatchNo} on {order.OrderNo}");
+        _db.SaveChanges();
+
+        return reversal;
+    }
+
+    /// <summary>
+    /// Gives <paramref name="quantity"/> back to the line's allocations, newest-consumed first.
+    /// <para>
+    /// The exact inverse of <c>MarkDispatched</c> over an ascending <c>PlanDispatch</c>: dispatch
+    /// fills allocations in priority order, so un-filling them in reverse priority order restores
+    /// precisely the state before. This holds only because the caller has already established that
+    /// no later dispatch stands on this order.
+    /// </para>
+    /// </summary>
+    private void UnconsumeAllocations(OrderLine line, decimal quantity)
+    {
+        var remaining = quantity;
+        var allocations = _db.OrderLineAllocations
+            .Where(a => a.OrderLineId == line.Id)
+            .OrderByDescending(a => a.Priority)
+            .ToList();
+
+        foreach (var a in allocations)
+        {
+            if (remaining <= 0) break;
+            var give = Math.Min(remaining, a.QuantityDispatched);
+            if (give <= 0) continue;
+            a.QuantityDispatched -= give;
+            remaining -= give;
+        }
+        // Any remainder belonged to a line booked before allocations were recorded, which had none
+        // to consume in the first place — there is nothing to give back.
+    }
+
+    /// <summary>
     /// One dispatch key's demand, kept split by the row it was reserved against: the shared
     /// unpacked pool versus the line's brand's packed stock. The goods may come out of either row,
     /// but the reservation must be released from the row that is actually holding it.

@@ -6,7 +6,7 @@ namespace SaniStock.Data.Entities;
 /// at packing time. Brand therefore exists from packing onward only: unpacked stock is brand-less
 /// and shared, packed stock belongs to exactly one brand, and orders are placed against a brand.
 /// </summary>
-public class Brand
+public class Brand : IActivatable
 {
     /// <summary>The code seeded on every database so packing works out of the box.</summary>
     public const string DefaultCode = "UNBRANDED";

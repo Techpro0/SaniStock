@@ -25,13 +25,13 @@
                     <TextBlock Text="Date" Style="{StaticResource FieldLabel}" />
                     <DatePicker SelectedDate="{Binding PackDate}" Margin="0,0,0,10" />
                     <TextBlock Text="Item" Style="{StaticResource FieldLabel}" />
-                    <ComboBox ItemsSource="{Binding Items}" SelectedItem="{Binding PackItem}"
+                    <ComboBox ItemsSource="{Binding Items}" SelectedItem="{Binding PackItem}" IsSynchronizedWithCurrentItem="False"
                               DisplayMemberPath="Name" Margin="0,0,0,10" />
                     <TextBlock Text="Grade" Style="{StaticResource FieldLabel}" />
-                    <ComboBox ItemsSource="{Binding Grades}" SelectedItem="{Binding PackGrade}"
+                    <ComboBox ItemsSource="{Binding Grades}" SelectedItem="{Binding PackGrade}" IsSynchronizedWithCurrentItem="False"
                               DisplayMemberPath="Name" Margin="0,0,0,10" />
                     <TextBlock Text="Colour" Style="{StaticResource FieldLabel}" />
-                    <ComboBox ItemsSource="{Binding Colours}" SelectedItem="{Binding PackColour}"
+                    <ComboBox ItemsSource="{Binding Colours}" SelectedItem="{Binding PackColour}" IsSynchronizedWithCurrentItem="False"
                               DisplayMemberPath="Name" Margin="0,0,0,10" />
 
                     <Border Background="#F2F6FC" CornerRadius="6" Padding="10" Margin="0,0,0,12">
@@ -53,7 +53,7 @@
                                     <ComboBox Grid.Column="0"
                                               ItemsSource="{Binding DataContext.Brands,
                                                   RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                              SelectedItem="{Binding Brand}" DisplayMemberPath="Name" />
+                                              SelectedItem="{Binding Brand}" DisplayMemberPath="Name" IsSynchronizedWithCurrentItem="False" />
                                     <TextBox Grid.Column="1" Margin="6,0,0,0"
                                              Text="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}"
                                              Tag="Qty" />

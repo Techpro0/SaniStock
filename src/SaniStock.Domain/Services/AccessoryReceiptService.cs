@@ -42,6 +42,15 @@ public class AccessoryReceiptService
         return receipt;
     }
 
+    /// <summary>
+    /// Reverses a receipt by taking the same quantity back out and recording a linked reversing
+    /// entry. The original row is left untouched (immutable).
+    /// <para>
+    /// Blocked once the stock has gone out again: taking back what has already shipped would drive
+    /// the accessory's on-hand negative and quietly misstate every later balance. This mirrors the
+    /// guard <see cref="ProductionService.Reverse"/> applies to finished ware.
+    /// </para>
+    /// </summary>
     public AccessoryReceipt Reverse(int receiptId, string? remarks = null)
     {
         var original = _db.AccessoryReceipts.Find(receiptId)
@@ -50,6 +59,14 @@ public class AccessoryReceiptService
             throw new DomainException("A reversal entry cannot itself be reversed.");
         if (_db.AccessoryReceipts.Any(r => r.ReversesEntryId == receiptId))
             throw new DomainException("This receipt has already been reversed.");
+
+        var onHand = _db.AccessoryStockBalances
+            .Where(b => b.AccessoryId == original.AccessoryId)
+            .Select(b => (decimal?)b.OnHand).FirstOrDefault() ?? 0m;
+        if (onHand < original.Quantity)
+            throw new DomainException(
+                $"This receipt of {original.Quantity:0.###} cannot be reversed: only {onHand:0.###} " +
+                $"of {AccessoryName(original.AccessoryId)} is still in stock. Some of it has already gone out.");
 
         var reversal = new AccessoryReceipt
         {
@@ -71,4 +88,7 @@ public class AccessoryReceiptService
         _db.SaveChanges();
         return reversal;
     }
+
+    private string AccessoryName(int accessoryId) =>
+        _db.Accessories.Where(a => a.Id == accessoryId).Select(a => a.Name).FirstOrDefault() ?? "this accessory";
 }

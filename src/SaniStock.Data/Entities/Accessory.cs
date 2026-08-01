@@ -1,7 +1,7 @@
 namespace SaniStock.Data.Entities;
 
 /// <summary>A saleable accessory (e.g. fittings, seat covers) tracked without grade/colour.</summary>
-public class Accessory
+public class Accessory : IActivatable
 {
     public int Id { get; set; }
     public string Code { get; set; } = string.Empty;

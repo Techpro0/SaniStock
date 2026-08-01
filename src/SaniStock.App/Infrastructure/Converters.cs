@@ -27,11 +27,29 @@ public sealed class NegativeToRedConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
-/// <summary>Shows "Active"/"Inactive" (or with a parameter, custom pair) from a bool.</summary>
+/// <summary>
+/// Renders a master-data record's <c>IsActive</c> flag as its status. Deliberately says "Deleted"
+/// rather than "Inactive": one flag carries both meanings in this app, and Setup Lists presents it
+/// to the user as Delete / Restore.
+/// </summary>
 public sealed class BoolToActiveTextConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-        => value is true ? "Active" : "Inactive";
+        => value is true ? "Active" : "Deleted";
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+/// <summary>
+/// Shows an element when a bool is <em>false</em>. Pairs with the built-in
+/// <c>BooleanToVisibilityConverter</c> so Delete and Restore can share one row, each visible only
+/// in the state where it applies.
+/// </summary>
+public sealed class InverseBoolToVisibilityConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is true ? Visibility.Collapsed : Visibility.Visible;
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();

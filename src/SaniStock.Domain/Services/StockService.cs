@@ -218,8 +218,9 @@ public class StockService
     // ---- Reconciliation ------------------------------------------------------
 
     /// <summary>
-    /// Rebuilds every cached balance from the immutable ledgers. Used after a restore
-    /// or to verify integrity. Returns the number of balance rows written.
+    /// Rebuilds every cached balance from the immutable ledgers — finished goods, accessories,
+    /// green ware and raw material. Used after a restore or to verify integrity. Returns the number
+    /// of balance rows written.
     /// <para>
     /// The two on-hand buckets rebuild independently, each as the running sum of its own signed
     /// delta, so no knowledge of packing or allocation order is needed here: production carries
@@ -269,7 +270,55 @@ public class StockService
             bal.Reserved = a.Reserved;
         }
 
-        var written = _db.SaveChanges();
-        return finished.Count + accessories.Count;
+        // Green ware and raw material keep a single OnHand each, and their entries carry direction
+        // in IsIssue rather than a signed delta. Now that a correction there is a mirrored entry
+        // rather than an edit, the entries genuinely sum to the balance, so these rebuild too.
+        var green = _db.GreenPieceEntries
+            .GroupBy(e => new { e.ItemId, e.ColourId })
+            .Select(g => new
+            {
+                g.Key.ItemId,
+                g.Key.ColourId,
+                OnHand = g.Sum(x => x.IsIssue ? -x.Quantity : x.Quantity)
+            })
+            .ToList();
+
+        foreach (var e in green)
+        {
+            var bal = _db.GreenPieceBalances.Local
+                          .FirstOrDefault(x => x.ItemId == e.ItemId && x.ColourId == e.ColourId)
+                      ?? _db.GreenPieceBalances
+                          .FirstOrDefault(x => x.ItemId == e.ItemId && x.ColourId == e.ColourId);
+            if (bal is null)
+            {
+                bal = new GreenPieceBalance { ItemId = e.ItemId, ColourId = e.ColourId };
+                _db.GreenPieceBalances.Add(bal);
+            }
+            bal.OnHand = e.OnHand;
+        }
+
+        var raw = _db.RawMaterialEntries
+            .GroupBy(e => e.RawMaterialId)
+            .Select(g => new
+            {
+                RawMaterialId = g.Key,
+                OnHand = g.Sum(x => x.IsIssue ? -x.Quantity : x.Quantity)
+            })
+            .ToList();
+
+        foreach (var e in raw)
+        {
+            var bal = _db.RawMaterialBalances.Local.FirstOrDefault(x => x.RawMaterialId == e.RawMaterialId)
+                      ?? _db.RawMaterialBalances.FirstOrDefault(x => x.RawMaterialId == e.RawMaterialId);
+            if (bal is null)
+            {
+                bal = new RawMaterialBalance { RawMaterialId = e.RawMaterialId };
+                _db.RawMaterialBalances.Add(bal);
+            }
+            bal.OnHand = e.OnHand;
+        }
+
+        _db.SaveChanges();
+        return finished.Count + accessories.Count + green.Count + raw.Count;
     }
 }

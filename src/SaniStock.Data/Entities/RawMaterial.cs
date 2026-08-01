@@ -1,7 +1,7 @@
 namespace SaniStock.Data.Entities;
 
 /// <summary>A raw material consumed in production (optional module).</summary>
-public class RawMaterial
+public class RawMaterial : IActivatable
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;

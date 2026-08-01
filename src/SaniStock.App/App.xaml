@@ -12,6 +12,7 @@
 
             <!-- Converters -->
             <BooleanToVisibilityConverter x:Key="BoolToVis" />
+            <conv:InverseBoolToVisibilityConverter x:Key="BoolToVisInverse" />
             <conv:NegativeToRedConverter x:Key="NegToRed" />
             <conv:BoolToActiveTextConverter x:Key="BoolToActive" />
             <conv:StringToVisibilityConverter x:Key="StrToVis" />
@@ -22,6 +23,7 @@
             <DataTemplate DataType="{x:Type vm:PackingViewModel}"><views:PackingView /></DataTemplate>
             <DataTemplate DataType="{x:Type vm:StockViewModel}"><views:StockView /></DataTemplate>
             <DataTemplate DataType="{x:Type vm:OrderBookingViewModel}"><views:OrderBookingView /></DataTemplate>
+            <DataTemplate DataType="{x:Type vm:OrdersViewModel}"><views:OrdersView /></DataTemplate>
             <DataTemplate DataType="{x:Type vm:OrderDispatchViewModel}"><views:OrderDispatchView /></DataTemplate>
             <DataTemplate DataType="{x:Type vm:ReportsViewModel}"><views:ReportsView /></DataTemplate>
             <DataTemplate DataType="{x:Type vm:MasterDataViewModel}"><views:MasterDataView /></DataTemplate>

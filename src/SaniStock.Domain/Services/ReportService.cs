@@ -240,7 +240,9 @@ public class ReportService
             where o.OrderDate >= fromDate.Date && o.OrderDate < toDate.Date.AddDays(1)
             where partyId == null || o.PartyId == partyId
             join p in _db.Parties on o.PartyId equals p.Id
-            join l in _db.OrderLines on o.Id equals l.OrderId
+            // Editing an order zeroes the lines it superseded rather than removing them, so the
+            // history survives. They are not part of the order any more, so reports skip them.
+            join l in _db.OrderLines.Where(x => x.QuantityOrdered > 0) on o.Id equals l.OrderId
             join i in _db.Items on l.ItemId equals i.Id
             join g in _db.Grades on l.GradeId equals g.Id
             join c in _db.Colours on l.ColourId equals c.Id
@@ -255,7 +257,7 @@ public class ReportService
             where o.OrderDate >= fromDate.Date && o.OrderDate < toDate.Date.AddDays(1)
             where partyId == null || o.PartyId == partyId
             join p in _db.Parties on o.PartyId equals p.Id
-            join l in _db.OrderAccessoryLines on o.Id equals l.OrderId
+            join l in _db.OrderAccessoryLines.Where(x => x.QuantityOrdered > 0) on o.Id equals l.OrderId
             join a in _db.Accessories on l.AccessoryId equals a.Id
             select new OrderReportRow(
                 o.OrderNo, o.OrderDate, p.Name, o.Status.ToString(),

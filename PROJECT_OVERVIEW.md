@@ -68,6 +68,24 @@ Raw material / green (unfired) ware   [optional side modules, balance-only]
        REPORTS / PDF / Excel
 ```
 
+### Nothing is ever deleted
+
+A standing rule across the whole application: **no user action physically removes a row.** Every
+"delete" is a reversible state change that keeps the record and its history intact, and can itself
+be undone later.
+
+| What | "Delete" means | Undo |
+|------|----------------|------|
+| Master data (all 8 Setup Lists) | Clear `IsActive` — the row and everything referring to it stay | Restore |
+| Production / Packing / Accessory receipt | A linked reversing entry (`IsReversal`, `ReversesEntryId`) | — (the reversal *is* the undo) |
+| Green ware / raw material | A linked reversing entry carrying the **opposite** `IsIssue` | — |
+| Orders | `OrderService.Cancel` releases the reservation and sets status `Cancelled` | — |
+| Order lines replaced by an edit | Zeroed (`QuantityOrdered = 0`), kept with their allocation history | — |
+| Dispatch | A linked reversing note (`IsReversal`, `ReversesEntryId`) that puts the goods back | — |
+
+There is no hard `DELETE` SQL anywhere in the codebase. The one flag `IsActive` carries both
+"temporarily switched off" and "deleted"; there is deliberately no second flag.
+
 Two derived numbers drive almost every screen:
 
 ```
@@ -153,7 +171,7 @@ packages below.
 |---|---|
 | Framework | **xUnit 2.5.3** (+ `xunit.runner.visualstudio`, `Microsoft.NET.Test.Sdk` 17.8.0, `coverlet.collector` 6.0.0) |
 | Style | Integration-style domain tests against a **real in-memory SQLite** connection (`DataSource=:memory:`), *not* the EF in-memory provider |
-| Count | 7 test files, **117** `[Fact]`/`[Theory]` cases, all in `tests/SaniStock.Domain.Tests` |
+| Count | 10 test files, **167** `[Fact]`/`[Theory]` cases, all in `tests/SaniStock.Domain.Tests` |
 
 ### Build tooling / package management
 
@@ -224,7 +242,7 @@ SaniStock/
 │       │   ├── IDialogService.cs       Testable wrapper over MessageBox / Open-SaveFileDialog
 │       │   ├── ExcelExporter.cs        Reflection-based "any List<T> → .xlsx" exporter
 │       │   └── Converters.cs           3 IValueConverters (negative→red, bool→Active, string→Visibility)
-│       ├── ViewModels/                 11 screen VMs + ViewModelBase + MasterList<T> helper
+│       ├── ViewModels/                 12 screen VMs + ViewModelBase + MasterList<T> helper
 │       └── Views/                      11 UserControls + LoginWindow + ShellWindow (XAML + code-behind)
 │
 ├── tests/
@@ -233,6 +251,9 @@ SaniStock/
 │       ├── StockMathTests.cs           Production / booking / dispatch / cancel / reconcile (20 facts)
 │       ├── PackingMathTests.cs         The unpacked↔packed bucket rules (16 facts)
 │       ├── GradePriorityAllocationTests.cs   Cross-grade borrowing (24 facts)
+│       ├── DispatchReversalTests.cs   Undoing a dispatch: buckets, brands, allocations, order (16)
+│       ├── OrderEditTests.cs          Editing a booked order: re-allocation, guards, kept history (13)
+│       ├── ReversibilityTests.cs      Delete/Restore + reversal for accessories, green ware, raw, recipes, order delete (22)
 │       ├── BrandAllocationTests.cs     Brand-scoped packed steps, shared unpacked pool (32 cases)
 │       ├── BrandMigrationTests.cs      The AddBrand upgrade path, run through real migrations (12)
 │       ├── AccessoryBundlingTests.cs   Item→accessory recipe behaviour (9 facts)
@@ -373,9 +394,10 @@ C#. The only raw SQL in the codebase is one `INSERT ... SELECT` inside the packi
 | Green (unfired) ware | `GreenPieceEntries` | `GreenPieceBalances` | Item + Colour (unique) |
 | Raw material | `RawMaterialEntries` | `RawMaterialBalances` | RawMaterial (unique) |
 
-Only the first two are true signed ledgers rebuildable by `StockService.ReconcileAll()`. Green ware
-and raw material use an `IsIssue` boolean and update their balance directly — **they are not
-covered by `ReconcileAll`**.
+**All four are rebuildable by `StockService.ReconcileAll()`.** The first two are signed ledgers
+summed per delta column. Green ware and raw material carry direction in an `IsIssue` boolean and
+update their balance directly, but since a correction there is now a *mirrored entry* rather than an
+edit, their entries genuinely sum to their balance and reconcile covers them too.
 
 #### `StockBalances` — the central table
 
@@ -453,9 +475,9 @@ ledger alone.
 |-------|-----------|-----------|
 | `ProductionEntries` | item+grade+colour, `Quantity`, `IsReversal`, `ReversesEntryId?` | Immutable. Posts `Production` (+Raw). Reversal blocked once the ware has been packed |
 | `PackingEntries` | item+grade+colour+**brand**, `Quantity`, `BatchId?`, `IsReversal`, `ReversesEntryId?` | Immutable. Posts `Packing` (two legs). Cannot pack more than is unpacked. **One row per brand**; a multi-brand action posts N rows sharing a `BatchId`. Reversal is per row (per brand), blocked once anything shipped for that combo+brand since — measured by **ledger row id**, not wall-clock |
-| `AccessoryReceipts` | accessory, `Quantity`, `IsReversal`, `ReversesEntryId?` | Immutable. Posts accessory `Production` (+OnHand). No packing stage for accessories |
-| `GreenPieceEntries` | item+colour, `IsIssue`, `Quantity` | In/out of unfired ware (no grade until fired) |
-| `RawMaterialEntries` | rawMaterial, `IsIssue`, `Quantity` | In/out of raw material |
+| `AccessoryReceipts` | accessory, `Quantity`, `IsReversal`, `ReversesEntryId?` | Immutable. Posts accessory `Production` (+OnHand). No packing stage for accessories. Reversal blocked once the stock has shipped, so it cannot drive on-hand negative |
+| `GreenPieceEntries` | item+colour, `IsIssue`, `Quantity`, `IsReversal`, `ReversesEntryId?` | In/out of unfired ware (no grade until fired). Immutable; a reversal is a linked entry with the **opposite** `IsIssue`. An issue cannot exceed what is on hand |
+| `RawMaterialEntries` | rawMaterial, `IsIssue`, `Quantity`, `IsReversal`, `ReversesEntryId?` | In/out of raw material. Same reversal and non-negative rules as green ware |
 
 ### Orders and dispatch
 
@@ -466,7 +488,7 @@ Orders (OrderNo unique, PartyId, OrderDate, Status, Remarks, CreatedBy, CreatedA
   │     └── OrderLineAllocations  (GradeId, BrandId?, Bucket, Priority, Quantity, QuantityDispatched, QuantityReleased)
   └── OrderAccessoryLines   (AccessoryId, SourceOrderLineId?, QuantityOrdered/Dispatched/Reserved)
 
-DispatchEntries (DispatchNo unique, OrderId, Date, DispatchedBy, Remarks)
+DispatchEntries (DispatchNo unique, OrderId, Date, DispatchedBy, Remarks, IsReversal, ReversesEntryId?)
   ├── DispatchLines           (OrderLineId, Quantity)
   └── DispatchAccessoryLines  (OrderAccessoryLineId, Quantity)
 ```
@@ -558,7 +580,9 @@ otherwise `Booked`. A fully-dispatched order cannot be cancelled.
 | `AddProductType` | 2026-07-18 | `ProductTypes` table + nullable `Items.ProductTypeId` |
 | `AddItemAccessoryBundling` | 2026-07-18 | `ItemAccessoryDefaults` + `OrderAccessoryLines.SourceOrderLineId` |
 | `AddPackingAndGradeAllocation` | 2026-07-25 | Packing stage + `OrderLineAllocations`. See below |
-| `AddBrand` | 2026-08-01 | The current release. Adds `Brands` and splits stock per brand. See below |
+| `AddBrand` | 2026-08-01 | Adds `Brands` and splits stock per brand. See below |
+| `AddGreenRawReversal` | 2026-08-01 | Two reversal columns each on `GreenPieceEntries` / `RawMaterialEntries`. Purely additive |
+| `AddDispatchReversal` | 2026-08-01 | The current release. `IsReversal` / `ReversesEntryId` on `DispatchEntries`. Purely additive; historic dispatches become reversible with no back-fill |
 
 `AddPackingAndGradeAllocation` is worth understanding because it rewrote existing data:
 
@@ -620,7 +644,7 @@ including that reconcile reproduces it and that a migrated open order can still 
 
 ## 6. CORE FUNCTIONALITY / FEATURES
 
-Eleven screens, listed here in sidebar order (from `ShellViewModel`'s `NavItems`).
+Twelve screens, listed here in sidebar order (from `ShellViewModel`'s `NavItems`).
 
 ### 6.1 Dashboard ("Home")
 
@@ -633,15 +657,17 @@ Eleven screens, listed here in sidebar order (from `ShellViewModel`'s `NavItems`
 
 ### 6.2 Add Stock ("Production & Stock-In")
 
-- **Does:** four separate posting forms on one screen — finished production, accessory receipt,
-  green-ware in/out, raw-material in/out — plus the last 100 production entries with a **Reverse**
-  action.
+- **Does:** four tabs — finished production, accessory receipt, green-ware in/out, raw-material
+  in/out. **Each tab now has its own history list of the last 100 entries with an Undo action**,
+  so every posting this screen makes can be undone from the same place it was made.
 - **Files:** [ProductionViewModel.cs](src/SaniStock.App/ViewModels/ProductionViewModel.cs) ·
   [ProductionView.xaml](src/SaniStock.App/Views/ProductionView.xaml)
-- **Domain:** `ProductionService.Post/Reverse`, `AccessoryReceiptService.Post`,
-  `GreenPieceService.Post`, `RawMaterialService.Post`
-- **Rules:** production lands in **unpacked** only; reversal is blocked if the unpacked balance no
-  longer covers it (i.e. the ware has been packed).
+- **Domain:** `ProductionService`, `AccessoryReceiptService`, `GreenPieceService`,
+  `RawMaterialService` — all four now expose `Post` **and** `Reverse`.
+- **Rules:** production lands in **unpacked** only; its reversal is blocked if the unpacked balance
+  no longer covers it (i.e. the ware has been packed). An accessory-receipt reversal is blocked once
+  the stock has shipped. Green/raw reversals mirror the original entry, and are blocked when
+  un-receiving would take the balance below zero; issuing more than is on hand is refused outright.
 
 ### 6.3 Packing
 
@@ -695,6 +721,11 @@ Eleven screens, listed here in sidebar order (from `ShellViewModel`'s `NavItems`
   (contains `BookingLine`, `BookingLineAccessory`, `BookingAccessoryLine`, `RecentOrderRow`) ·
   [OrderBookingView.xaml](src/SaniStock.App/Views/OrderBookingView.xaml)
 - **Domain:** [OrderService.Book](src/SaniStock.Domain/Services/OrderService.cs#L40)
+- **Delete an order:** the Recent Orders list has a **Delete** button per row. It calls
+  `OrderService.Cancel` — the order stays on record with status `Cancelled`, its lines and
+  allocations intact, and every reservation it still held is released back to the exact grade+brand
+  rows it drew from. Anything already dispatched is untouched. The button is hidden once an order is
+  cancelled or fully sent, since there is nothing left to release.
 - **Rules:** every item line names a **Brand** alongside item/grade/colour. Booking raises `Reserved`
   only, never `OnHand`, and is **never blocked** by a lack of stock. Lines are allocated **one at a
   time**, applying each reservation before planning the next, so two lines competing for the same
@@ -702,7 +733,28 @@ Eleven screens, listed here in sidebar order (from `ShellViewModel`'s `NavItems`
   shared unpacked pool, never over each other's packed stock. The brand dropdown offers **active
   brands only**.
 
-### 6.6 Send Order (Order Dispatch)
+### 6.6 Orders (list · view · edit · delete)
+
+- **Does:** every order taken, not just the 50 recent ones *New Order* shows. Filters for status,
+  customer, brand and date range; a master-detail layout with the list on the left and the opened
+  order on the right.
+- **Files:** [OrdersViewModel.cs](src/SaniStock.App/ViewModels/OrdersViewModel.cs) ·
+  [OrdersView.xaml](src/SaniStock.App/Views/OrdersView.xaml)
+- **Detail view:** item lines (brand/grade/colour, ordered/sent/left), accessory lines showing which
+  item line each was bundled with, and the order's dispatch history. An expander shows **the stock
+  each line is actually holding** — the grade+brand rows behind the reservation — which is what
+  explains a shortfall, since the grade holding the stock is not always the one printed on the line.
+- **Edit / Delete** call `OrderService.Edit` / `OrderService.Cancel`; neither reimplements anything.
+  Each button is hidden when its rule does not allow it — Edit only while nothing has shipped,
+  Delete only while there is a reservation left to release.
+- **Undo** on the dispatch history calls `DispatchService.Reverse`, and appears only on the newest
+  still-standing note. A reversing note shows a **negative** quantity and is labelled `Reversal`;
+  the note it undid is labelled `Reversed`.
+- **Separate from *New Order*,** which stays a booking-only workflow.
+- **Row cap:** the grid virtualises rendering but the query does not, so it fetches at most **500**
+  rows and says so when it hits the cap rather than silently truncating.
+
+### 6.7 Send Order (Order Dispatch)
 
 - **Does:** pick an open order, see its lines with bundled accessories nested beneath their parent
   item line, type quantities (or hit "dispatch all pending"), and post.
@@ -715,7 +767,7 @@ Eleven screens, listed here in sidebar order (from `ShellViewModel`'s `NavItems`
   and advances the status. Lines are labelled `Item / Grade / Colour / Brand`, since the same
   combination can appear twice on one order under two brands.
 
-### 6.7 Reports
+### 6.8 Reports
 
 - **Does:** four tabs — Stock, **What to Make** (shortfall), Production (date-ranged, item filter),
   Orders (date-ranged, party filter) — each with export buttons.
@@ -730,7 +782,7 @@ Eleven screens, listed here in sidebar order (from `ShellViewModel`'s `NavItems`
   | Production | ✅ `PdfReports.SaveProduction` | ✅ generic `ExcelExporter` |
   | Orders | ✅ `PdfReports.SaveOrders` | ✅ bespoke `ExcelReports.SaveOrders` |
 
-### 6.8 Setup Lists (Master Data) — **Admin only**
+### 6.9 Setup Lists (Master Data) — **Admin only**
 
 - **Does:** eight CRUD tabs (Product Type, Items, Grades, Colours, **Brands**, Accessories,
   Customers, Raw Materials). The Items tab additionally hosts the **default-accessory recipe
@@ -740,10 +792,23 @@ Eleven screens, listed here in sidebar order (from `ShellViewModel`'s `NavItems`
   [MasterList.cs](src/SaniStock.App/ViewModels/MasterList.cs) ·
   [MasterDataView.xaml](src/SaniStock.App/Views/MasterDataView.xaml)
 - **Domain:** [MasterDataService.cs](src/SaniStock.Domain/Services/MasterDataService.cs)
-- **Note:** master data is only ever **deactivated**, never deleted — no delete command exists in
-  the UI or the service.
+- **Delete / Restore.** Each row has **Edit · Delete** (active) or **Edit · Restore** (deleted), and
+  a **Show deleted** toggle above each grid, on by default — hiding deleted rows would make a
+  deletion look permanent and leave no route back. Delete asks for confirmation and says plainly
+  that nothing is erased. Underneath it is only `IsActive`; see "Nothing is ever deleted" in §1.
+- **One change, not eight.** All 8 tabs share one `MasterList<T>` and one `RowActionsCell`
+  template. `MasterList<T>` is constrained to
+  [`IActivatable`](src/SaniStock.Data/Entities/IActivatable.cs), so Delete/Restore is compile-checked
+  rather than reflective, and it takes `IDialogService` + a label ("Colour") to build its own prompts.
+  Delete clones the row, flips the flag and saves through the tab's normal `save` delegate, so
+  per-entity validation still runs and a refused save leaves the grid untouched.
+- **Grades are guarded.** `MasterDataService.SaveGrade` refuses to switch off the **last active
+  grade** — every stock row and order line must name one, and `ResolveGradeChain` derives the
+  borrowing chain from the active grades. Deleting a grade while others remain is allowed, but note
+  it silently re-points that chain, since the chain is always "the two lowest sort orders still
+  active".
 
-### 6.9 Users — **Admin only**
+### 6.10 Users — **Admin only**
 
 - **Does:** list users, create a user (username + password + role), reset a password, toggle active.
 - **Files:** [UserManagementViewModel.cs](src/SaniStock.App/ViewModels/UserManagementViewModel.cs) ·
@@ -752,7 +817,7 @@ Eleven screens, listed here in sidebar order (from `ShellViewModel`'s `NavItems`
 - **Domain:** [AuthService.cs](src/SaniStock.Domain/Services/AuthService.cs)
 - **Rule:** the last active administrator cannot be deactivated.
 
-### 6.10 Backup — **Admin only**
+### 6.11 Backup — **Admin only**
 
 - **Does:** three actions — *Backup now* (copy the .db somewhere), *Restore* (replace the live .db,
   keeping a `.bak`, then auto-reconcile), *Recalculate balances* (`ReconcileAll` on demand).
@@ -762,7 +827,7 @@ Eleven screens, listed here in sidebar order (from `ShellViewModel`'s `NavItems`
 - **Detail:** calls `SqliteConnection.ClearAllPools()` before copying so the file isn't locked.
   After a restore the user is told to close and reopen the app.
 
-### 6.11 About
+### 6.12 About
 
 Static info card: app name, tagline, assembly version, framework string, and the data folder path.
 
@@ -831,7 +896,21 @@ Decides **which physical stock covers a booked line**, and how it is later consu
   movement **per grade touched**.
 - `Cancel(orderId, reason?)` — releases still-reserved quantity on every line against the exact
   recorded sources in reverse draw order, plus all accessory lines; sets status `Cancelled`.
-  **Blocked** for already-cancelled and fully-dispatched orders.
+  **Blocked** for already-cancelled and fully-dispatched orders. This is the app's "delete an order".
+- `Edit(orderId, OrderInput)` — rewrites an order's lines under the **same `Order` and `OrderNo`**.
+  **Blocked** once anything on the order has shipped (item *or* accessory line), and for cancelled
+  orders. Mechanically it is Cancel-then-Book on one order: `ReleaseEverything` hands the whole
+  reservation back, the superseded lines are set to quantity 0 (kept, with their allocations), and
+  the new lines go through `AddLinesAndReserve`.
+- `AddLinesAndReserve(order, lines, accessoryLines)` / `ReleaseEverything(order, remark)` — the two
+  halves shared by `Book`, `Edit` and `Cancel`. **There is deliberately no second reservation path**:
+  an edited order allocates through exactly the code a freshly booked one does, so the two cannot
+  drift apart.
+
+> Because an edit zeroes superseded lines rather than removing them, every read path that lists
+> order lines filters `QuantityOrdered > 0` — `ReportService.GetOrders`, the dispatch picker, and
+> the Orders screen. `GetShortfall` already filtered `QuantityOrdered > QuantityDispatched`, which
+> excludes them for free.
 - `DescribeAllocation(...)` — builds the human ledger remark, e.g.
   `"Booking ORD-2026-0007 (packed 50 for Brand A) — covering a 1st grade line"`.
 
@@ -849,8 +928,35 @@ Decides **which physical stock covers a booked line**, and how it is later consu
   on one order would each validate against the whole pool and together ship stock that does not
   exist. Booking needs no equivalent, because it applies each line's reservation before planning the
   next, so the next `Plan` already sees the claim.
+- `Reverse(dispatchEntryId, remarks?)` — puts the goods back in the exact buckets and brand rows
+  they left from, re-raises the reservation, un-consumes the order lines and their allocations,
+  recomputes the status, and writes a linked reversing note. See below.
 - `static ComputeStatus(order)` — `Dispatched` / `PartiallyDispatched` / `Booked`.
 - `DescribeFinished(...)` — "Item / Grade / Colour" for error messages.
+
+#### Reversing a dispatch
+
+**Where the goods came from is read back from the ledger, not from a second record.** A shipped
+line can span several grades (cross-grade borrowing) and, within each, a brand's packed stock and
+the shared unpacked pool — so a per-`DispatchLine` "from packed / from raw" pair cannot express it,
+and would be a lossy duplicate of something the app already stores. Every dispatch already writes
+`StockMovement` rows carrying the exact item+grade+colour+**brand** and the raw/packed/reserved
+split, and those rows are what `ReconcileAll()` rebuilds balances from. `Reverse` loads them by
+`SourceType = "DispatchEntry"` + `SourceId` and negates them, so the restore is correct by
+construction rather than by agreement between two records that could drift.
+
+**Only the newest still-standing dispatch on an order can be reversed.** Restoring the allocations
+means walking them in **descending** priority and un-consuming — the exact inverse of the ascending
+walk `MarkDispatched` used. That inverse is only the true one for the last dispatch: reversing an
+earlier one out of turn would hand quantity back to whichever allocations the *later* dispatch
+happened to take, silently corrupting which source each line holds. Unwind newest-first instead —
+the same discipline production and packing reversals already follow. "Still standing" means a note
+that is neither a reversal nor itself reversed, so reversing the newest makes the one before it
+reversible in turn.
+
+The reversal itself is always safe on stock: it only ever adds on-hand back and re-raises Reserved,
+neither of which can go negative. A reversed order also becomes editable and cancellable again,
+which is how a fully-dispatched order gets corrected.
 
 ### 5. `src/SaniStock.Data/SaniStockDbContext.cs` (145 lines)
 
@@ -921,7 +1027,7 @@ explanation of the design in the repo — read them before changing stock math.
 
 ### 11. `src/SaniStock.App/ViewModels/ShellViewModel.cs` (65 lines)
 
-Navigation. `record NavItem(Icon, Title, ViewModelType, AdminOnly)`; the array of 11 items is
+Navigation. `record NavItem(Icon, Title, ViewModelType, AdminOnly)`; the array of 12 items is
 filtered by role in the constructor. `OnSelectedChanged` resolves a fresh ViewModel from
 `App.Services` and calls `OnActivated()`. Raises `LogoutRequested`, handled by `ShellWindow`.
 
@@ -1090,7 +1196,7 @@ effect on the application** — purely developer tooling.
 # from the repo root
 dotnet restore
 dotnet build                 # builds all 5 projects in SaniStock.sln
-dotnet test                  # runs the ~117 xUnit domain tests
+dotnet test                  # runs the ~167 xUnit domain tests
 ```
 
 > **[DISCREPANCY]** `docs/README.md` refers to a solution file named `SaniStock.slnx`. The file in
@@ -1213,14 +1319,14 @@ There are **no `TODO`, `FIXME`, `HACK` or `NotImplementedException` markers anyw
    until someone runs *Recalculate balances*. This is the highest-value fix in the codebase:
    wrap each operation in `db.Database.BeginTransaction()`.
 
-2. **Green ware and raw material are outside the ledger discipline.** `GreenPieceService` and
-   `RawMaterialService` mutate `GreenPieceBalance.OnHand` / `RawMaterialBalance.OnHand` directly and
-   write no signed movement rows. `ReconcileAll()` therefore **cannot rebuild them** — the entries
-   exist but are never summed. They can drift with no way to detect or repair it.
+2. ~~**Green ware and raw material are outside the ledger discipline.**~~ **Fixed.** They still
+   mutate their `OnHand` directly rather than writing signed movement rows, but corrections are now
+   mirrored entries rather than edits, so their entries sum to their balance and `ReconcileAll()`
+   rebuilds them alongside finished goods and accessories.
 
-3. **Balances can go negative in the green/raw modules.** Neither service checks the current balance
-   before an issue, so posting an issue larger than on-hand silently produces a negative balance.
-   The finished-goods and accessory paths do guard this.
+3. ~~**Balances can go negative in the green/raw modules.**~~ **Fixed.** Both services now refuse an
+   issue larger than the current balance, and refuse a reversal that would take it below zero.
+   `AccessoryReceiptService.Reverse` gained the same guard, which it had been missing entirely.
 
 4. **No concurrency control of any kind.** No row versions, no optimistic concurrency tokens, no
    locking, and everything runs on the UI thread. Two copies of the app pointed at the same database
@@ -1256,14 +1362,15 @@ There are **no `TODO`, `FIXME`, `HACK` or `NotImplementedException` markers anyw
 
 These all work and, where applicable, are tested — they simply have no button:
 
-7. **Order cancellation.** `OrderService.Cancel` is fully implemented and covered by 6 tests, but
-   nothing in any View or ViewModel calls it. Only the demo seeder does. A user cannot cancel an
-   order from the app at all.
+7. ~~**Order cancellation.** `OrderService.Cancel` is unreachable from the UI.~~ **Fixed** — the
+   Recent Orders list on *New Order* now has a **Delete** button that calls it, shown only while
+   the order can still be cancelled. The dedicated Orders screen will carry a fuller version.
 8. ~~**Accessory stock PDF export.** `PdfReports.SaveAccessoryStock` has zero callers.~~
    **Fixed** — the Stock screen's Save PDF button now calls it when the Accessories tab is showing.
 9. **Shortfall Excel export.** The "What to Make" tab offers PDF only.
-10. **Accessory receipt reversal.** `AccessoryReceiptService.Reverse` exists; the Add Stock screen
-    exposes reversal for finished production only.
+10. ~~**Accessory receipt reversal.**~~ **Fixed** — every tab on Add Stock now has its own history
+    list with an Undo action, covering accessory receipts, green ware and raw material as well as
+    finished production.
 11. **Audit log viewing.** Every stock action writes an `AuditLog` row, and nothing ever reads one.
 12. **Green ware / raw material balances.** Movements can be posted; the resulting balances appear
     on no screen and in no report.
@@ -1312,12 +1419,13 @@ These all work and, where applicable, are tested — they simply have no button:
 
 ### Minor code smells
 
-27. `StockService.ReconcileAll()` assigns `var written = _db.SaveChanges();` and never uses
-    `written` — it returns the row count instead.
+27. ~~`StockService.ReconcileAll()` assigns `var written = _db.SaveChanges();` and never uses it.~~
+    **Fixed** while extending reconcile to cover green ware and raw material.
 28. `MasterDataService.Upsert<T>` uses **reflection** (`typeof(T).GetProperty("Id")`) to read the
     primary key on every save. A small `IHasId` interface would be faster and compile-checked.
-29. **Master data can never be deleted**, only deactivated. There is no delete command in the UI or
-    the service. This is probably intentional (referential safety) but is undocumented.
+29. ~~**Master data can never be deleted**, only deactivated, with no delete command in the UI.~~
+    **Resolved by design, and now documented.** Deactivation *is* the delete, surfaced as
+    Delete/Restore — see "Nothing is ever deleted" in §1. Referential safety is the whole point.
 30. `ExcelExporter.Save` exports **every public simple property** by reflection, so any property
     added to a report row record silently appears as a new spreadsheet column — and any property
     that is *not* simple is silently dropped. That is why the stock export is now hand-written:

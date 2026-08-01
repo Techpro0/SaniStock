@@ -1,7 +1,7 @@
 namespace SaniStock.Data.Entities;
 
 /// <summary>A finished-ware product (e.g. a wash basin model).</summary>
-public class Item
+public class Item : IActivatable
 {
     public int Id { get; set; }
     public string Code { get; set; } = string.Empty;

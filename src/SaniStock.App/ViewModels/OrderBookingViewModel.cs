@@ -37,8 +37,20 @@ public partial class BookingLineAccessory : ObservableObject
 
 /// <summary>A staged standalone (manually-added) accessory line on the order being built.</summary>
 public record BookingAccessoryLine(int AccessoryId, string Accessory, decimal Quantity);
-/// <summary>A recently booked order summary.</summary>
-public record RecentOrderRow(string OrderNo, DateTime OrderDate, string Party, string Status, int LineCount);
+/// <summary>A recently booked order summary, with what is needed to delete it.</summary>
+public record RecentOrderRow(int Id, string OrderNo, DateTime OrderDate, string Party,
+    OrderStatus Status, int LineCount)
+{
+    public string StatusText => Status.ToString();
+
+    /// <summary>
+    /// Whether Delete applies. Deleting an order is <c>OrderService.Cancel</c> underneath, which
+    /// refuses an order that is already cancelled or has shipped in full — there is no reservation
+    /// left to release, and the goods are gone. Hiding the button in those states saves the user
+    /// clicking into a refusal.
+    /// </summary>
+    public bool CanDelete => Status is OrderStatus.Booked or OrderStatus.PartiallyDispatched;
+}
 
 public partial class OrderBookingViewModel : ViewModelBase
 {
@@ -100,7 +112,7 @@ public partial class OrderBookingViewModel : ViewModelBase
             (from o in scope.Db.Orders
              join p in scope.Db.Parties on o.PartyId equals p.Id
              orderby o.Id descending
-             select new RecentOrderRow(o.OrderNo, o.OrderDate, p.Name, o.Status.ToString(),
+             select new RecentOrderRow(o.Id, o.OrderNo, o.OrderDate, p.Name, o.Status,
                  o.Lines.Count + o.AccessoryLines.Count))
             .Take(50).ToList();
         RecentOrders.Clear();
@@ -171,6 +183,41 @@ public partial class OrderBookingViewModel : ViewModelBase
             Lines.Clear();
             AccessoryLines.Clear();
             Remarks = string.Empty;
+            LoadRecent(scope);
+        }
+        catch (DomainException ex) { _dialogs.Error(ex.Message); }
+        catch (Exception ex) { _dialogs.Error("Unexpected error: " + ex.Message); }
+    }
+
+    /// <summary>
+    /// Deletes an order — which is <c>OrderService.Cancel</c>: the order and all its history stay
+    /// in the database, its status becomes Cancelled, and every reservation it was still holding is
+    /// released back to the exact grade/brand rows it drew from. Anything already dispatched is
+    /// untouched, because those goods have physically left.
+    /// </summary>
+    [RelayCommand]
+    private void DeleteOrder(RecentOrderRow? row)
+    {
+        if (row is null) return;
+        if (!row.CanDelete)
+        {
+            _dialogs.Error(row.Status == OrderStatus.Cancelled
+                ? $"Order {row.OrderNo} has already been deleted."
+                : $"Order {row.OrderNo} has been sent in full, so it cannot be deleted.");
+            return;
+        }
+
+        if (!_dialogs.Confirm(
+                $"Delete order {row.OrderNo} for {row.Party}?\n\n" +
+                "The order stays on record as Cancelled — nothing is erased — and any stock it was " +
+                "holding becomes free for other orders. Anything already sent stays sent."))
+            return;
+
+        try
+        {
+            using var scope = _scopes.Create();
+            scope.Orders.Cancel(row.Id, "Deleted from the orders list");
+            _dialogs.Info($"Order {row.OrderNo} deleted. Any stock it was holding is free again.");
             LoadRecent(scope);
         }
         catch (DomainException ex) { _dialogs.Error(ex.Message); }

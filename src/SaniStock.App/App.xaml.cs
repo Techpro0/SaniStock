@@ -66,6 +66,7 @@ public partial class App : Application
         services.AddTransient<PackingViewModel>();
         services.AddTransient<StockViewModel>();
         services.AddTransient<OrderBookingViewModel>();
+        services.AddTransient<OrdersViewModel>();
         services.AddTransient<OrderDispatchViewModel>();
         services.AddTransient<ReportsViewModel>();
         services.AddTransient<MasterDataViewModel>();

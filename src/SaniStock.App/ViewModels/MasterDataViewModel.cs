@@ -47,55 +47,54 @@ public partial class MasterDataViewModel : ViewModelBase
         _scopes = scopes;
         _dialogs = dialogs;
         Title = "Master Data";
-        void Err(string m) => _dialogs.Error(m);
 
         ProductTypesTab = new MasterList<ProductType>(
             () => Query(db => db.ProductTypes.OrderBy(x => x.Name).ToList()),
             e => Do(s => s.Master.SaveProductType(e)),
             e => new ProductType { Id = e.Id, Code = e.Code, Name = e.Name, IsActive = e.IsActive },
-            () => new ProductType { IsActive = true }, Err);
+            () => new ProductType { IsActive = true }, dialogs, "Product type");
 
         ItemsTab = new MasterList<Item>(
             () => Query(db => db.Items.Include(x => x.ProductType).OrderBy(x => x.Name).ToList()),
             e => Do(s => { s.Master.SaveItem(e); PersistItemAccessoryDefaults(s, e.Id); }),
             e => new Item { Id = e.Id, Code = e.Code, Name = e.Name, UnitOfMeasure = e.UnitOfMeasure, IsActive = e.IsActive, ProductTypeId = e.ProductTypeId },
-            () => new Item { IsActive = true, UnitOfMeasure = "PCS" }, Err);
+            () => new Item { IsActive = true, UnitOfMeasure = "PCS" }, dialogs, "Item");
 
         GradesTab = new MasterList<Grade>(
             () => Query(db => db.Grades.OrderBy(x => x.SortOrder).ToList()),
             e => Do(s => s.Master.SaveGrade(e)),
             e => new Grade { Id = e.Id, Name = e.Name, SortOrder = e.SortOrder, IsActive = e.IsActive },
-            () => new Grade { IsActive = true }, Err);
+            () => new Grade { IsActive = true }, dialogs, "Grade");
 
         ColoursTab = new MasterList<Colour>(
             () => Query(db => db.Colours.OrderBy(x => x.Name).ToList()),
             e => Do(s => s.Master.SaveColour(e)),
             e => new Colour { Id = e.Id, Name = e.Name, HexCode = e.HexCode, IsActive = e.IsActive },
-            () => new Colour { IsActive = true }, Err);
+            () => new Colour { IsActive = true }, dialogs, "Colour");
 
         BrandsTab = new MasterList<Brand>(
             () => Query(db => db.Brands.OrderBy(x => x.Name).ToList()),
             e => Do(s => s.Master.SaveBrand(e)),
             e => new Brand { Id = e.Id, Code = e.Code, Name = e.Name, IsActive = e.IsActive },
-            () => new Brand { IsActive = true }, Err);
+            () => new Brand { IsActive = true }, dialogs, "Brand");
 
         AccessoriesTab = new MasterList<Accessory>(
             () => Query(db => db.Accessories.OrderBy(x => x.Name).ToList()),
             e => Do(s => s.Master.SaveAccessory(e)),
             e => new Accessory { Id = e.Id, Code = e.Code, Name = e.Name, UnitOfMeasure = e.UnitOfMeasure, IsActive = e.IsActive },
-            () => new Accessory { IsActive = true, UnitOfMeasure = "PCS" }, Err);
+            () => new Accessory { IsActive = true, UnitOfMeasure = "PCS" }, dialogs, "Accessory");
 
         PartiesTab = new MasterList<Party>(
             () => Query(db => db.Parties.OrderBy(x => x.Name).ToList()),
             e => Do(s => s.Master.SaveParty(e)),
             e => new Party { Id = e.Id, Name = e.Name, Address = e.Address, Contact = e.Contact, Gstin = e.Gstin, IsActive = e.IsActive },
-            () => new Party { IsActive = true }, Err);
+            () => new Party { IsActive = true }, dialogs, "Customer");
 
         RawMaterialsTab = new MasterList<RawMaterial>(
             () => Query(db => db.RawMaterials.OrderBy(x => x.Name).ToList()),
             e => Do(s => s.Master.SaveRawMaterial(e)),
             e => new RawMaterial { Id = e.Id, Name = e.Name, UnitOfMeasure = e.UnitOfMeasure, IsActive = e.IsActive },
-            () => new RawMaterial { IsActive = true, UnitOfMeasure = "KG" }, Err);
+            () => new RawMaterial { IsActive = true, UnitOfMeasure = "KG" }, dialogs, "Raw material");
 
         // Keep the Items tab's product-type dropdown in sync as types are added/edited.
         ProductTypesTab.Items.CollectionChanged += (_, _) => RebuildProductTypeOptions();

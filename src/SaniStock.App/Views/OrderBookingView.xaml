@@ -165,8 +165,23 @@
                         <DataGridTextColumn Header="Order No" Binding="{Binding OrderNo}" Width="Auto" />
                         <DataGridTextColumn Header="Date" Binding="{Binding OrderDate, StringFormat=dd-MMM-yyyy}" Width="Auto" />
                         <DataGridTextColumn Header="Customer" Binding="{Binding Party}" Width="*" />
-                        <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="Auto" />
+                        <DataGridTextColumn Header="Status" Binding="{Binding StatusText}" Width="Auto" />
                         <DataGridTextColumn Header="Lines" Binding="{Binding LineCount}" Width="Auto" />
+                        <!-- Delete is Cancel underneath: the order stays on record, its held stock
+                             is released. Hidden once an order is cancelled or fully sent. -->
+                        <DataGridTemplateColumn Header="" Width="80">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="Delete" Padding="8,3" FontSize="11"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Visibility="{Binding CanDelete, Converter={StaticResource BoolToVis}}"
+                                            ToolTip="Cancel this order and free the stock it is holding. Nothing is erased."
+                                            Command="{Binding DataContext.DeleteOrderCommand,
+                                                RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                     </DataGrid.Columns>
                 </DataGrid>
             </Expander>
