@@ -10,9 +10,12 @@ using SaniStock.Domain.Models;
 
 namespace SaniStock.App.ViewModels;
 
-/// <summary>A packing history row with the id needed to reverse it.</summary>
+/// <summary>
+/// A packing history row with the id needed to reverse it. Only packings that still stand appear
+/// here — see <see cref="PackingViewModel.LoadHistory"/> for why the undone ones are left out.
+/// </summary>
 public record PackingHistoryRow(int Id, int BatchId, DateTime Date, string Item, string Grade,
-    string Colour, string Brand, decimal Quantity, bool IsReversal, string CreatedBy);
+    string Colour, string Brand, decimal Quantity, string CreatedBy);
 
 /// <summary>
 /// One brand line being staged on the packing form: how much of this packing goes to that brand.
@@ -94,6 +97,14 @@ public partial class PackingViewModel : ViewModelBase
         RefreshSummary();
     }
 
+    /// <summary>
+    /// Loads the packings that still stand. The table itself is append-only — undoing a packing
+    /// appends a reversing entry and leaves the original on record — but this screen shows only what
+    /// is currently packed, so both halves of an undone packing are filtered out: the reversal, and
+    /// the entry it reverses. Otherwise an undone packing of 300 sits next to its own reversal of
+    /// 300 and reads as the same packing posted twice. The full audit trail, reversals included, is
+    /// on the Reports screen.
+    /// </summary>
     private void LoadHistory(DomainScope scope)
     {
         var rows =
@@ -102,9 +113,13 @@ public partial class PackingViewModel : ViewModelBase
              join g in scope.Db.Grades on e.GradeId equals g.Id
              join c in scope.Db.Colours on e.ColourId equals c.Id
              join b in scope.Db.Brands on e.BrandId equals b.Id
+             // "Has it been undone" is asked of the whole table, not of the page: the row that
+             // reverses an entry always outranks it by id, but the page is capped and hiding the
+             // original must not depend on its reversal landing inside that window.
+             where !e.IsReversal && !scope.Db.PackingEntries.Any(r => r.ReversesEntryId == e.Id)
              orderby e.Id descending
              select new PackingHistoryRow(e.Id, e.BatchId ?? e.Id, e.Date, i.Name, g.Name, c.Name,
-                 b.Name, e.Quantity, e.IsReversal, e.CreatedBy))
+                 b.Name, e.Quantity, e.CreatedBy))
             .Take(100).ToList();
         History.Clear();
         foreach (var r in rows) History.Add(r);
@@ -220,7 +235,8 @@ public partial class PackingViewModel : ViewModelBase
     private void ReversePacking(PackingHistoryRow? row)
     {
         if (row is null) return;
-        if (row.IsReversal) { _dialogs.Error("A reversal entry cannot be reversed."); return; }
+        // Reversals and already-undone packings never reach this list, and PackingService.Reverse
+        // refuses both anyway, so there is nothing to screen for here.
         if (!_dialogs.Confirm(
                 $"Undo packing of {row.Quantity:0.###} — {row.Item} / {row.Grade} / {row.Colour} ({row.Brand})?\n\n" +
                 "Other brands packed at the same time are not affected."))

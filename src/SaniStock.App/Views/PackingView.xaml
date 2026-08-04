@@ -114,6 +114,7 @@
                                     <DataTemplate>
                                         <Button Content="Undo" Padding="8,3" FontSize="11"
                                                 Style="{StaticResource SecondaryButton}"
+                                                ToolTip="Move this quantity back from packed to unpacked for this brand."
                                                 Command="{Binding DataContext.ReversePackingCommand,
                                                     RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding}" />
