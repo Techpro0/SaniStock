@@ -27,6 +27,7 @@
     <Description>Offline production and stock management for sanitary ware manufacturing.</Description>
     <Version>1.0.0</Version>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <SelfContained>true</SelfContained>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
 

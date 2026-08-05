@@ -99,6 +99,7 @@ public partial class ProductionViewModel : ViewModelBase
              join i in scope.Db.Items on e.ItemId equals i.Id
              join g in scope.Db.Grades on e.GradeId equals g.Id
              join c in scope.Db.Colours on e.ColourId equals c.Id
+             where !e.IsReversal && !scope.Db.ProductionEntries.Any(r => r.ReversesEntryId == e.Id)
              orderby e.Id descending
              select new ProductionHistoryRow(e.Id, e.Date, i.Name, g.Name, c.Name, e.Quantity, e.IsReversal, e.CreatedBy))
             .Take(100).ToList());
@@ -106,6 +107,7 @@ public partial class ProductionViewModel : ViewModelBase
         Fill(AccessoryHistory,
             (from e in scope.Db.AccessoryReceipts
              join a in scope.Db.Accessories on e.AccessoryId equals a.Id
+             where !e.IsReversal && !scope.Db.AccessoryReceipts.Any(r => r.ReversesEntryId == e.Id)
              orderby e.Id descending
              select new AccessoryHistoryRow(e.Id, e.Date, a.Name, e.Quantity, e.IsReversal, e.CreatedBy))
             .Take(100).ToList());
@@ -114,6 +116,7 @@ public partial class ProductionViewModel : ViewModelBase
             (from e in scope.Db.GreenPieceEntries
              join i in scope.Db.Items on e.ItemId equals i.Id
              join c in scope.Db.Colours on e.ColourId equals c.Id
+             where !e.IsReversal && !scope.Db.GreenPieceEntries.Any(r => r.ReversesEntryId == e.Id)
              orderby e.Id descending
              select new MovementHistoryRow(e.Id, e.Date, i.Name + " / " + c.Name,
                  e.IsIssue ? "Out" : "In", e.Quantity, e.IsReversal, e.CreatedBy))
@@ -122,6 +125,7 @@ public partial class ProductionViewModel : ViewModelBase
         Fill(RawHistory,
             (from e in scope.Db.RawMaterialEntries
              join m in scope.Db.RawMaterials on e.RawMaterialId equals m.Id
+             where !e.IsReversal && !scope.Db.RawMaterialEntries.Any(r => r.ReversesEntryId == e.Id)
              orderby e.Id descending
              select new MovementHistoryRow(e.Id, e.Date, m.Name,
                  e.IsIssue ? "Out" : "In", e.Quantity, e.IsReversal, e.CreatedBy))

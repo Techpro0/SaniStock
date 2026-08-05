@@ -46,9 +46,6 @@
 
                 <Button Content="Sign in" Style="{StaticResource PrimaryButton}" Margin="0,18,0,0"
                         Height="42" Click="SignIn_Click" />
-
-                <TextBlock Style="{StaticResource Muted}" Margin="0,18,0,0" TextAlignment="Center"
-                           Text="Default admin — user: admin / password: admin123" />
             </StackPanel>
         </Border>
     </Grid>

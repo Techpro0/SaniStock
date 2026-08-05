@@ -88,8 +88,6 @@
                     <Border Grid.Column="1" Style="{StaticResource Card}" VerticalAlignment="Top">
                         <StackPanel>
                             <TextBlock Text="Edit Product Type" Style="{StaticResource H2}" />
-                            <TextBlock Text="Code" Style="{StaticResource FieldLabel}" />
-                            <TextBox Text="{Binding Editing.Code, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
                             <TextBlock Text="Name" Style="{StaticResource FieldLabel}" />
                             <TextBox Text="{Binding Editing.Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
                             <CheckBox Content="Active" IsChecked="{Binding Editing.IsActive}" />
@@ -125,8 +123,6 @@
                     <Border Grid.Column="1" Style="{StaticResource Card}" VerticalAlignment="Top">
                         <StackPanel>
                             <TextBlock Text="Edit Item" Style="{StaticResource H2}" />
-                            <TextBlock Text="Code" Style="{StaticResource FieldLabel}" />
-                            <TextBox Text="{Binding Editing.Code, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
                             <TextBlock Text="Name" Style="{StaticResource FieldLabel}" />
                             <TextBox Text="{Binding Editing.Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
                             <TextBlock Text="Product Type" Style="{StaticResource FieldLabel}" />
@@ -314,8 +310,6 @@
                     <Border Grid.Column="1" Style="{StaticResource Card}" VerticalAlignment="Top">
                         <StackPanel>
                             <TextBlock Text="Edit Accessory" Style="{StaticResource H2}" />
-                            <TextBlock Text="Code" Style="{StaticResource FieldLabel}" />
-                            <TextBox Text="{Binding Editing.Code, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
                             <TextBlock Text="Name" Style="{StaticResource FieldLabel}" />
                             <TextBox Text="{Binding Editing.Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
                             <TextBlock Text="Unit (PCS, KG…)" Style="{StaticResource FieldLabel}" />

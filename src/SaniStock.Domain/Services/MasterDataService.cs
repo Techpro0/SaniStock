@@ -14,7 +14,9 @@ public class MasterDataService
     // ---- Item ----
     public Item SaveItem(Item item)
     {
-        item.Code = Require(item.Code, "Item code");
+        item.Code = string.IsNullOrWhiteSpace(item.Code)
+            ? GenerateNextCode("IT-", _db.Items.Select(x => x.Code).ToList())
+            : Require(item.Code, "Item code");
         item.Name = Require(item.Name, "Item name");
         if (_db.Items.Any(x => x.Code == item.Code && x.Id != item.Id))
             throw new DomainException($"Item code '{item.Code}' already exists.");
@@ -30,7 +32,9 @@ public class MasterDataService
     // ---- ProductType ----
     public ProductType SaveProductType(ProductType p)
     {
-        p.Code = Require(p.Code, "Product type code");
+        p.Code = string.IsNullOrWhiteSpace(p.Code)
+            ? GenerateNextCode("PT-", _db.ProductTypes.Select(x => x.Code).ToList())
+            : Require(p.Code, "Product type code");
         p.Name = Require(p.Name, "Product type name");
         if (_db.ProductTypes.Any(x => x.Code == p.Code && x.Id != p.Id))
             throw new DomainException($"Product type code '{p.Code}' already exists.");
@@ -42,7 +46,9 @@ public class MasterDataService
     // ---- Accessory ----
     public Accessory SaveAccessory(Accessory a)
     {
-        a.Code = Require(a.Code, "Accessory code");
+        a.Code = string.IsNullOrWhiteSpace(a.Code)
+            ? GenerateNextCode("AC-", _db.Accessories.Select(x => x.Code).ToList())
+            : Require(a.Code, "Accessory code");
         a.Name = Require(a.Name, "Accessory name");
         if (_db.Accessories.Any(x => x.Code == a.Code && x.Id != a.Id))
             throw new DomainException($"Accessory code '{a.Code}' already exists.");
@@ -194,6 +200,21 @@ public class MasterDataService
             row.IsActive = false;
 
         _db.SaveChanges();
+    }
+
+    private static string GenerateNextCode(string prefix, IReadOnlyCollection<string> existingCodes)
+    {
+        var next = existingCodes
+            .Where(code => !string.IsNullOrWhiteSpace(code) && code.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            .Select(code =>
+            {
+                var suffix = code[prefix.Length..];
+                return int.TryParse(suffix, out var n) ? n : 0;
+            })
+            .DefaultIfEmpty(0)
+            .Max() + 1;
+
+        return $"{prefix}{next:D4}";
     }
 
     private static string Require(string? value, string field)
