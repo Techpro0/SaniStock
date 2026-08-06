@@ -33,28 +33,41 @@
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
         <Setter Property="TextWrapping" Value="Wrap" />
+        <!-- TextBlock has no built-in text selection, so every label/value in the app is made
+             copyable through a right-click "Copy" menu instead of hand-rolling character-level
+             mouse selection. The Copy command itself is wired up once, class-wide, in
+             App.RegisterCopyableTextSupport(). Every named text style below inherits this via
+             BasedOn so the menu reaches headings, hints and field labels too, not just plain text. -->
+        <Setter Property="ContextMenu">
+            <Setter.Value>
+                <ContextMenu>
+                    <MenuItem Header="Copy" Command="Copy"
+                              CommandTarget="{Binding PlacementTarget, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                </ContextMenu>
+            </Setter.Value>
+        </Setter>
     </Style>
 
-    <Style x:Key="H1" TargetType="TextBlock">
+    <Style x:Key="H1" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
         <Setter Property="FontSize" Value="22" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
         <Setter Property="Margin" Value="0,0,0,4" />
     </Style>
 
-    <Style x:Key="H2" TargetType="TextBlock">
+    <Style x:Key="H2" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
         <Setter Property="FontSize" Value="15" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
         <Setter Property="Margin" Value="0,0,0,8" />
     </Style>
 
-    <Style x:Key="Muted" TargetType="TextBlock">
+    <Style x:Key="Muted" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
         <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
         <Setter Property="FontSize" Value="12" />
     </Style>
 
-    <Style x:Key="FieldLabel" TargetType="TextBlock">
+    <Style x:Key="FieldLabel" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
         <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
         <Setter Property="FontSize" Value="12" />
         <Setter Property="Margin" Value="0,0,0,3" />
@@ -203,6 +216,11 @@
         <Setter Property="IsReadOnly" Value="True" />
         <Setter Property="CanUserAddRows" Value="False" />
         <Setter Property="SelectionMode" Value="Single" />
+        <!-- Cell-level selection (not just whole rows) so Ctrl+C copies one value at a time —
+             e.g. just an order number or a quantity — instead of the entire row as tab-separated
+             text. ClipboardCopyMode stays at its default (enabled), which is what actually copies
+             the selection to the clipboard. -->
+        <Setter Property="SelectionUnit" Value="CellOrRowHeader" />
         <Setter Property="FontSize" Value="12.5" />
         <Setter Property="ColumnHeaderHeight" Value="36" />
         <Setter Property="RowHeight" Value="32" />

@@ -19,15 +19,22 @@ public static class DbSeeder
     }
 
     /// <summary>
-    /// One starter brand, so packing works on a brand-new database without a trip to Setup Lists.
-    /// Seeded by code, like product types, and deliberately the same code the Brand migration
-    /// assigns to pre-existing packed stock — so an upgraded database and a fresh one both end up
-    /// with exactly this one row rather than two near-identical brands.
+    /// One starter brand, so packing works on a brand-new database without a trip to Setup Lists,
+    /// using the same code the Brand migration assigns to pre-existing packed stock — so an
+    /// upgraded database and a fresh one both end up with exactly this one row rather than two
+    /// near-identical brands.
+    /// <para>
+    /// Seeded once, on a genuinely empty table, never topped up again — unlike <see cref="SeedProductTypes"/>,
+    /// a brand has no field an admin can't rename, so matching on "does this code already exist"
+    /// would insert a phantom second Unbranded the moment the admin recodes or renames the first
+    /// one. "The table already has a brand" is the check that stays true no matter what an admin
+    /// has since done to the row, exactly like <see cref="SeedAdmin"/>.
+    /// </para>
     /// </summary>
     private static void SeedBrands(SaniStockDbContext db)
     {
-        if (!db.Brands.Any(x => x.Code == Brand.DefaultCode))
-            db.Brands.Add(new Brand { Code = Brand.DefaultCode, Name = "Unbranded", IsActive = true });
+        if (db.Brands.Any()) return;
+        db.Brands.Add(new Brand { Code = Brand.DefaultCode, Name = "Unbranded", IsActive = true });
     }
 
     /// <summary>
@@ -64,19 +71,22 @@ public static class DbSeeder
         }
     }
 
+    /// <summary>
+    /// Starter grades, seeded once on a genuinely empty table and never topped up again. Unlike
+    /// <see cref="SeedProductTypes"/>, a grade has no separate code an admin's rename can't touch —
+    /// matching on name would insert a phantom "1st" back in the moment an admin renames it to
+    /// anything else, silently corrupting the grade-priority chain (<c>ResolveGradeChain</c> picks
+    /// the two lowest <c>SortOrder</c> among <em>active</em> grades, so a stray extra one joins it).
+    /// "The table already has a grade" is the check that survives any rename, exactly like
+    /// <see cref="SeedAdmin"/>.
+    /// </summary>
     private static void SeedGrades(SaniStockDbContext db)
     {
-        var wanted = new[]
-        {
-            ("1st", 1),
-            ("2nd", 2),
-            ("3rd", 3),
-        };
-        foreach (var (name, sort) in wanted)
-        {
-            if (!db.Grades.Any(g => g.Name == name))
-                db.Grades.Add(new Grade { Name = name, SortOrder = sort, IsActive = true });
-        }
+        if (db.Grades.Any()) return;
+
+        db.Grades.Add(new Grade { Name = "1st", SortOrder = 1, IsActive = true });
+        db.Grades.Add(new Grade { Name = "2nd", SortOrder = 2, IsActive = true });
+        db.Grades.Add(new Grade { Name = "3rd", SortOrder = 3, IsActive = true });
     }
 
     private static void SeedAdmin(SaniStockDbContext db)
