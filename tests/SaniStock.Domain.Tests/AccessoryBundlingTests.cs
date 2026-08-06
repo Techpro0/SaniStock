@@ -152,6 +152,98 @@ public class AccessoryBundlingTests
         Assert.Equal(OrderStatus.Cancelled, h.Db.Orders.Find(order.Id)!.Status);
     }
 
+    // ---- Brand inheritance -----------------------------------------------------
+    //
+    // The reason brand exists on an accessory line at all: an auto-bundled accessory takes its
+    // parent item line's brand, so its reservation prefers that brand's packed accessory stock —
+    // not the shared unbranded pool — the same way a manually-added item line already would.
+
+    [Fact]
+    public void Auto_attached_accessory_line_inherits_its_parent_item_lines_brand()
+    {
+        using var h = new TestHarness();
+        h.Master.SetItemAccessoryDefaults(h.ItemA, new[] { (h.Acc1, 1m) });
+
+        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandB, 10));
+
+        var accLine = order.AccessoryLines.Single();
+        Assert.Equal(h.BrandB, accLine.BrandId);
+    }
+
+    [Fact]
+    public void Auto_attached_accessory_reservation_prefers_its_brands_packed_stock_over_the_pool()
+    {
+        using var h = new TestHarness();
+        h.Master.SetItemAccessoryDefaults(h.ItemA, new[] { (h.Acc1, 1m) });
+        h.AccessoryReceipts.Post(new AccessoryReceiptInput(DateTime.Today, h.Acc1, 100, null));
+        h.PackAccessory(h.Acc1, 40, h.BrandA);
+
+        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandA, 10));
+
+        // The recipe reserved 10 of Acc1 for this line — drawn from Brand A's packed stock, not the
+        // 60 still sitting unbranded in the pool.
+        var accLine = order.AccessoryLines.Single();
+        Assert.Equal(new[] { ((int?)h.BrandA, StockBucket.Packed, 10m) }, h.AccessoryAllocation(accLine.Id));
+        Assert.Equal(10, h.AccessoryBrandRow(h.Acc1, h.BrandA).Reserved);
+        Assert.Equal(0, h.AccessoryBrandRow(h.Acc1, null).Reserved);
+    }
+
+    [Fact]
+    public void Auto_attached_accessory_falls_back_to_the_shared_pool_once_its_brands_packed_stock_runs_out()
+    {
+        using var h = new TestHarness();
+        h.Master.SetItemAccessoryDefaults(h.ItemA, new[] { (h.Acc1, 1m) });
+        h.AccessoryReceipts.Post(new AccessoryReceiptInput(DateTime.Today, h.Acc1, 100, null));
+        h.PackAccessory(h.Acc1, 6, h.BrandA);   // only 6 packed for Brand A; 94 still unpacked
+
+        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandA, 10));
+
+        var accLine = order.AccessoryLines.Single();
+        Assert.Equal(new[]
+        {
+            ((int?)h.BrandA, StockBucket.Packed, 6m),
+            ((int?)null, StockBucket.Raw, 4m),
+        }, h.AccessoryAllocation(accLine.Id));
+    }
+
+    [Fact]
+    public void Another_brands_packed_accessory_stock_is_never_drawn_for_this_lines_brand()
+    {
+        using var h = new TestHarness();
+        h.Master.SetItemAccessoryDefaults(h.ItemA, new[] { (h.Acc1, 1m) });
+        h.AccessoryReceipts.Post(new AccessoryReceiptInput(DateTime.Today, h.Acc1, 100, null));
+        h.PackAccessory(h.Acc1, 100, h.BrandB);   // all of it packed under the other brand
+
+        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandA, 10));
+
+        // Nothing is available to Brand A — Brand B's boxes are the wrong boxes — so it is a shortfall.
+        var accLine = order.AccessoryLines.Single();
+        Assert.Equal(new[] { ((int?)null, StockBucket.Shortfall, 10m) }, h.AccessoryAllocation(accLine.Id));
+        Assert.Equal(0, h.AccessoryBrandRow(h.Acc1, h.BrandB).Reserved);
+    }
+
+    [Fact]
+    public void Dispatch_of_an_auto_attached_accessory_draws_its_brands_packed_stock_first()
+    {
+        using var h = new TestHarness();
+        h.Master.SetItemAccessoryDefaults(h.ItemA, new[] { (h.Acc1, 1m) });
+        h.Production.Post(new ProductionInput(DateTime.Today, h.ItemA, h.Grade1, h.White, 100, null));
+        h.AccessoryReceipts.Post(new AccessoryReceiptInput(DateTime.Today, h.Acc1, 100, null));
+        h.PackAccessory(h.Acc1, 30, h.BrandA);
+
+        var order = h.Orders.Book(SingleLineOrder(h.PartyX, h.ItemA, h.Grade1, h.White, h.BrandA, 20));
+        var itemLineId = order.Lines.Single().Id;
+        var accLineId = order.AccessoryLines.Single().Id;
+
+        h.Dispatch.Dispatch(new DispatchInput(order.Id, DateTime.Today, null,
+            new[] { new DispatchLineInput(itemLineId, 20) },
+            new[] { new DispatchAccessoryLineInput(accLineId, 20) }));
+
+        // 20 of Acc1 shipped out of Brand A's packed 30, leaving 10 packed and the pool untouched.
+        Assert.Equal((0m, 10m, 0m), h.AccessoryBrandRow(h.Acc1, h.BrandA));
+        Assert.Equal((70m, 0m, 0m), h.AccessoryBrandRow(h.Acc1, null));
+    }
+
     // ---- Recipe editing ------------------------------------------------------
 
     [Fact]

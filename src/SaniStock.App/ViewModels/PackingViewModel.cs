@@ -17,6 +17,10 @@ namespace SaniStock.App.ViewModels;
 public record PackingHistoryRow(int Id, int BatchId, DateTime Date, string Item, string Grade,
     string Colour, string Brand, decimal Quantity, string CreatedBy);
 
+/// <summary>Accessory analogue of <see cref="PackingHistoryRow"/>, minus grade/colour.</summary>
+public record AccessoryPackingHistoryRow(int Id, int BatchId, DateTime Date, string Accessory,
+    string Brand, decimal Quantity, string CreatedBy);
+
 /// <summary>
 /// One brand line being staged on the packing form: how much of this packing goes to that brand.
 /// The quantity stays a string until it is posted, like every other typed number in the app, so a
@@ -50,6 +54,9 @@ public partial class PackingViewModel : ViewModelBase
     /// <summary>Unpacked quantity for the current selection, cached so the total line can judge it.</summary>
     private decimal _availableToPack;
 
+    /// <summary>Unpacked quantity for the current accessory selection, cached for its total line.</summary>
+    private decimal _accessoryAvailableToPack;
+
     public PackingViewModel(IDomainScopeFactory scopes, IDialogService dialogs)
     {
         _scopes = scopes;
@@ -58,6 +65,7 @@ public partial class PackingViewModel : ViewModelBase
 
         // Re-total whenever a row is added, removed, or its brand/quantity edited.
         BrandLines.CollectionChanged += OnBrandLinesChanged;
+        AccessoryBrandLines.CollectionChanged += OnAccessoryBrandLinesChanged;
     }
 
     public ObservableCollection<Item> Items { get; } = new();
@@ -66,6 +74,10 @@ public partial class PackingViewModel : ViewModelBase
     public ObservableCollection<Brand> Brands { get; } = new();
     public ObservableCollection<PackingBrandRow> BrandLines { get; } = new();
     public ObservableCollection<PackingHistoryRow> History { get; } = new();
+
+    public ObservableCollection<Accessory> Accessories { get; } = new();
+    public ObservableCollection<PackingBrandRow> AccessoryBrandLines { get; } = new();
+    public ObservableCollection<AccessoryPackingHistoryRow> AccessoryHistory { get; } = new();
 
     [ObservableProperty] private Item? _packItem;
     [ObservableProperty] private Grade? _packGrade;
@@ -82,6 +94,15 @@ public partial class PackingViewModel : ViewModelBase
     /// <summary>True when the brand rows add up to more than is unpacked — the total line turns red.</summary>
     [ObservableProperty] private bool _isOverAllocated;
 
+    [ObservableProperty] private Accessory? _packAccessory;
+    [ObservableProperty] private DateTime _accessoryPackDate = DateTime.Today;
+    [ObservableProperty] private string _accessoryPackRemarks = string.Empty;
+
+    [ObservableProperty] private string _accessorySelectionSummary =
+        "Choose an accessory to see what is waiting to be packed.";
+    [ObservableProperty] private string _accessoryBrandTotalSummary = string.Empty;
+    [ObservableProperty] private bool _accessoryIsOverAllocated;
+
     public override void OnActivated() => Load();
 
     [RelayCommand]
@@ -92,9 +113,13 @@ public partial class PackingViewModel : ViewModelBase
         Fill(Grades, scope.Db.Grades.Where(x => x.IsActive).OrderBy(x => x.SortOrder).ToList());
         Fill(Colours, scope.Db.Colours.Where(x => x.IsActive).OrderBy(x => x.Name).ToList());
         Fill(Brands, scope.Db.Brands.Where(x => x.IsActive).OrderBy(x => x.Name).ToList());
+        Fill(Accessories, scope.Db.Accessories.Where(x => x.IsActive).OrderBy(x => x.Name).ToList());
         LoadHistory(scope);
+        LoadAccessoryHistory(scope);
         if (BrandLines.Count == 0) AddBrandLine();
+        if (AccessoryBrandLines.Count == 0) AddAccessoryBrandLine();
         RefreshSummary();
+        RefreshAccessorySummary();
     }
 
     /// <summary>
@@ -123,6 +148,22 @@ public partial class PackingViewModel : ViewModelBase
             .Take(100).ToList();
         History.Clear();
         foreach (var r in rows) History.Add(r);
+    }
+
+    /// <summary>Accessory analogue of <see cref="LoadHistory"/>.</summary>
+    private void LoadAccessoryHistory(DomainScope scope)
+    {
+        var rows =
+            (from e in scope.Db.AccessoryPackingEntries
+             join a in scope.Db.Accessories on e.AccessoryId equals a.Id
+             join b in scope.Db.Brands on e.BrandId equals b.Id
+             where !e.IsReversal && !scope.Db.AccessoryPackingEntries.Any(r => r.ReversesEntryId == e.Id)
+             orderby e.Id descending
+             select new AccessoryPackingHistoryRow(e.Id, e.BatchId ?? e.Id, e.Date, a.Name, b.Name,
+                 e.Quantity, e.CreatedBy))
+            .Take(100).ToList();
+        AccessoryHistory.Clear();
+        foreach (var r in rows) AccessoryHistory.Add(r);
     }
 
     // ---- Brand split ---------------------------------------------------------
@@ -164,6 +205,43 @@ public partial class PackingViewModel : ViewModelBase
                             (IsOverAllocated ? "  —  more than is waiting to be packed" : string.Empty);
     }
 
+    // ---- Accessory brand split ------------------------------------------------
+
+    [RelayCommand]
+    private void AddAccessoryBrandLine()
+    {
+        var row = new PackingBrandRow();
+        row.Brand = Brands.FirstOrDefault(b => AccessoryBrandLines.All(l => l.Brand?.Id != b.Id));
+        AccessoryBrandLines.Add(row);
+    }
+
+    [RelayCommand]
+    private void RemoveAccessoryBrandLine(PackingBrandRow? row)
+    {
+        if (row is null) return;
+        AccessoryBrandLines.Remove(row);
+        if (AccessoryBrandLines.Count == 0) AddAccessoryBrandLine();
+    }
+
+    private void OnAccessoryBrandLinesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        foreach (var row in e.OldItems?.Cast<PackingBrandRow>() ?? Enumerable.Empty<PackingBrandRow>())
+            row.PropertyChanged -= OnAccessoryBrandRowChanged;
+        foreach (var row in e.NewItems?.Cast<PackingBrandRow>() ?? Enumerable.Empty<PackingBrandRow>())
+            row.PropertyChanged += OnAccessoryBrandRowChanged;
+        RefreshAccessoryBrandTotal();
+    }
+
+    private void OnAccessoryBrandRowChanged(object? sender, PropertyChangedEventArgs e) => RefreshAccessoryBrandTotal();
+
+    private void RefreshAccessoryBrandTotal()
+    {
+        var total = AccessoryBrandLines.Sum(l => l.ParsedQuantity);
+        AccessoryIsOverAllocated = total > _accessoryAvailableToPack;
+        AccessoryBrandTotalSummary = $"Total: {total:0.###} of {_accessoryAvailableToPack:0.###} available" +
+                                     (AccessoryIsOverAllocated ? "  —  more than is waiting to be packed" : string.Empty);
+    }
+
     // Deferred, never inline: these fire from a binding write-back, including the one WPF performs
     // while tearing this screen down on navigation. Querying the database there runs inside the
     // layout pass. See ViewModelBase.RunAfterLayout.
@@ -193,6 +271,32 @@ public partial class PackingViewModel : ViewModelBase
             ? $"Waiting to be packed: {raw:0.###}   •   Already packed (all brands): {packed:0.###}"
             : $"Nothing waiting to be packed.   •   Already packed (all brands): {packed:0.###}";
         RefreshBrandTotal();
+    }
+
+    partial void OnPackAccessoryChanged(Accessory? value) => RunAfterLayout(RefreshAccessorySummary);
+
+    /// <summary>Accessory analogue of <see cref="RefreshSummary"/>.</summary>
+    private void RefreshAccessorySummary()
+    {
+        if (PackAccessory is null)
+        {
+            _accessoryAvailableToPack = 0m;
+            AccessorySelectionSummary = "Choose an accessory to see what is waiting to be packed.";
+            RefreshAccessoryBrandTotal();
+            return;
+        }
+
+        using var scope = _scopes.Create();
+        var raw = scope.Stock.FindAccessoryBalance(PackAccessory.Id)?.RawOnHand ?? 0m;
+        var packed = scope.Db.AccessoryStockBalances
+            .Where(b => b.AccessoryId == PackAccessory.Id)
+            .Sum(b => (decimal?)b.PackedOnHand) ?? 0m;
+
+        _accessoryAvailableToPack = raw;
+        AccessorySelectionSummary = raw > 0
+            ? $"Waiting to be packed: {raw:0.###}   •   Already packed (all brands): {packed:0.###}"
+            : $"Nothing waiting to be packed.   •   Already packed (all brands): {packed:0.###}";
+        RefreshAccessoryBrandTotal();
     }
 
     // ---- Posting -------------------------------------------------------------
@@ -244,6 +348,52 @@ public partial class PackingViewModel : ViewModelBase
         Run(scope => { scope.Packing.Reverse(row.Id); _dialogs.Info("Packing undone."); });
     }
 
+    /// <summary>Accessory analogue of <see cref="PostPacking"/>.</summary>
+    [RelayCommand]
+    private void PostAccessoryPacking()
+    {
+        if (PackAccessory is null) { _dialogs.Error("Select an accessory."); return; }
+
+        var filled = AccessoryBrandLines.Where(l => !string.IsNullOrWhiteSpace(l.Quantity) || l.Brand is not null).ToList();
+        if (filled.Count == 0) { _dialogs.Error("Add at least one brand to pack under."); return; }
+
+        var lines = new List<AccessoryPackingBrandLine>();
+        foreach (var row in filled)
+        {
+            if (row.Brand is null) { _dialogs.Error("Choose a brand on every line, or remove the line."); return; }
+            if (!decimal.TryParse(row.Quantity, out var qty) || qty <= 0)
+            { _dialogs.Error($"Enter a quantity greater than zero for {row.Brand.Name}."); return; }
+            lines.Add(new AccessoryPackingBrandLine(row.Brand.Id, qty));
+        }
+        if (lines.Select(l => l.BrandId).Distinct().Count() != lines.Count)
+        { _dialogs.Error("The same brand is listed twice — combine those lines into one."); return; }
+
+        var total = lines.Sum(l => l.Quantity);
+        RunAccessory(scope =>
+        {
+            scope.AccessoryPacking.Post(new AccessoryPackingInput(AccessoryPackDate, PackAccessory.Id,
+                lines, NullIfBlank(AccessoryPackRemarks)));
+            _dialogs.Info(lines.Count == 1
+                ? $"Packed {total:0.###} {PackAccessory.UnitOfMeasure}."
+                : $"Packed {total:0.###} {PackAccessory.UnitOfMeasure} across {lines.Count} brands.");
+            AccessoryBrandLines.Clear();
+            AddAccessoryBrandLine();
+            AccessoryPackRemarks = string.Empty;
+        });
+    }
+
+    /// <summary>Accessory analogue of <see cref="ReversePacking"/>.</summary>
+    [RelayCommand]
+    private void ReverseAccessoryPacking(AccessoryPackingHistoryRow? row)
+    {
+        if (row is null) return;
+        if (!_dialogs.Confirm(
+                $"Undo packing of {row.Quantity:0.###} — {row.Accessory} ({row.Brand})?\n\n" +
+                "Other brands packed at the same time are not affected."))
+            return;
+        RunAccessory(scope => { scope.AccessoryPacking.Reverse(row.Id); _dialogs.Info("Packing undone."); });
+    }
+
     private void Run(Action<DomainScope> action)
     {
         try
@@ -254,6 +404,21 @@ public partial class PackingViewModel : ViewModelBase
                 LoadHistory(scope);
             }
             RefreshSummary(); // re-read the split on a fresh scope, after the write is committed
+        }
+        catch (DomainException ex) { _dialogs.Error(ex.Message); }
+        catch (Exception ex) { _dialogs.Error("Unexpected error: " + ex.Message); }
+    }
+
+    private void RunAccessory(Action<DomainScope> action)
+    {
+        try
+        {
+            using (var scope = _scopes.Create())
+            {
+                action(scope);
+                LoadAccessoryHistory(scope);
+            }
+            RefreshAccessorySummary();
         }
         catch (DomainException ex) { _dialogs.Error(ex.Message); }
         catch (Exception ex) { _dialogs.Error("Unexpected error: " + ex.Message); }

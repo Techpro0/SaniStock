@@ -15,6 +15,9 @@ public partial class StockView : UserControl
     /// </summary>
     private const int BrandColumnStart = 5;
 
+    /// <summary>Same idea for the Accessories grid: after Code / Accessory / Not Packed.</summary>
+    private const int AccessoryBrandColumnStart = 3;
+
     private StockViewModel? _boundViewModel;
 
     public StockView()
@@ -58,10 +61,20 @@ public partial class StockView : UserControl
     {
         if (_boundViewModel is null) return;
 
-        foreach (var stale in FinishedGrid.Columns.Where(IsGenerated).ToList())
-            FinishedGrid.Columns.Remove(stale);
+        SpliceBrandColumns(FinishedGrid, BrandColumnStart);
+        // Both grids are index-aligned to the same BrandColumns list (GetStockBrandColumns()
+        // considers finished and accessory packed stock together), so one rebuild loop covers both.
+        SpliceBrandColumns(AccessoryGrid, AccessoryBrandColumnStart);
+    }
 
-        var at = BrandColumnStart;
+    private void SpliceBrandColumns(DataGrid grid, int insertAt)
+    {
+        if (_boundViewModel is null) return;
+
+        foreach (var stale in grid.Columns.Where(IsGenerated).ToList())
+            grid.Columns.Remove(stale);
+
+        var at = insertAt;
         for (var i = 0; i < _boundViewModel.BrandColumns.Count; i++)
         {
             var brand = _boundViewModel.BrandColumns[i];
@@ -74,7 +87,7 @@ public partial class StockView : UserControl
                 Binding = new Binding($"PackedByBrand[{i}].Packed") { StringFormat = "{0:0.###}" }
             };
             MarkGenerated(column);
-            FinishedGrid.Columns.Insert(at++, column);
+            grid.Columns.Insert(at++, column);
         }
     }
 

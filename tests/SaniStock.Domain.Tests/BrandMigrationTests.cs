@@ -222,7 +222,7 @@ public class BrandMigrationTests : IDisposable
         var user = new UserContext { Username = "tester", Role = UserRole.Admin, IsAuthenticated = true };
         var stock = new StockService(_db, user);
         var dispatch = new DispatchService(_db, stock, new StockAllocationService(_db, stock),
-            new NumberSequenceService(_db), user);
+            new AccessoryStockAllocationService(_db, stock), new NumberSequenceService(_db), user);
 
         var lineId = _db.OrderLines.AsNoTracking().Single().Id;
         dispatch.Dispatch(new Models.DispatchInput(1, DateTime.Today, null,
@@ -297,6 +297,7 @@ public class BrandMigrationTests : IDisposable
         var user = new UserContext { Username = "tester", Role = UserRole.Admin, IsAuthenticated = true };
         var stock = new StockService(_db, user);
         var allocations = new StockAllocationService(_db, stock);
+        var accessoryAllocations = new AccessoryStockAllocationService(_db, stock);
         var numbers = new NumberSequenceService(_db);
 
         new ProductionService(_db, stock, user)
@@ -305,12 +306,12 @@ public class BrandMigrationTests : IDisposable
             DateTime.Today, itemId, gradeId, colourId,
             new[] { new Models.PackingBrandLine(brandId, 60) }, null));
 
-        var order = new OrderService(_db, stock, allocations, numbers, user).Book(
+        var order = new OrderService(_db, stock, allocations, accessoryAllocations, numbers, user).Book(
             new Models.OrderInput(partyId, DateTime.Today, null,
                 new[] { new Models.OrderLineInput(itemId, gradeId, colourId, brandId, 80) },
                 Array.Empty<Models.OrderAccessoryLineInput>()));
 
-        new DispatchService(_db, stock, allocations, numbers, user).Dispatch(
+        new DispatchService(_db, stock, allocations, accessoryAllocations, numbers, user).Dispatch(
             new Models.DispatchInput(order.Id, DateTime.Today, null,
                 new[] { new Models.DispatchLineInput(order.Lines.Single().Id, 80) },
                 Array.Empty<Models.DispatchAccessoryLineInput>()));

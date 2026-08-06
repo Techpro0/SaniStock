@@ -143,6 +143,56 @@ public static class ExcelReports
         wb.SaveAs(path);
     }
 
+    /// <summary>
+    /// Accessory stock export, laid out to match the on-screen grid and the PDF. Mirrors
+    /// <see cref="SaveFinishedStock"/> exactly, minus item/grade/colour — written by hand for the
+    /// same reason: the generic reflection exporter would drop the per-brand breakdown.
+    /// </summary>
+    public static void SaveAccessoryStock(AccessoryStockView view, string path, string sheetName = "Accessory Stock")
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add(Trim(sheetName));
+
+        var titles = new List<string> { "Code", "Accessory", "Not Packed" };
+        titles.AddRange(view.Brands.Select(b => $"Packed — {b.Name}"));
+        titles.AddRange(new[] { "Packed Total", "In Stock", "Booked", "Free" });
+
+        for (var c = 0; c < titles.Count; c++)
+        {
+            var cell = ws.Cell(1, c + 1);
+            cell.Value = titles[c];
+            cell.Style.Font.Bold = true;
+            cell.Style.Fill.BackgroundColor = XLColor.LightGray;
+            cell.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
+        }
+
+        var row = 2;
+        foreach (var r in view.Rows)
+        {
+            var col = 1;
+            ws.Cell(row, col++).Value = r.AccessoryCode;
+            ws.Cell(row, col++).Value = r.AccessoryName;
+            ws.Cell(row, col++).Value = r.RawOnHand;
+
+            for (var i = 0; i < view.Brands.Count; i++)
+                ws.Cell(row, col++).Value = i < r.PackedByBrand.Count ? r.PackedByBrand[i].Packed : 0m;
+
+            ws.Cell(row, col++).Value = r.PackedOnHand;
+            ws.Cell(row, col++).Value = r.OnHand;
+            ws.Cell(row, col++).Value = r.Reserved;
+
+            var free = ws.Cell(row, col);
+            free.Value = r.Available;
+            if (r.Available < 0) free.Style.Font.FontColor = XLColor.Red;
+
+            row++;
+        }
+
+        ws.SheetView.FreezeRows(1);
+        ws.Columns().AdjustToContents();
+        wb.SaveAs(path);
+    }
+
     private static void Label(IXLWorksheet ws, int row, int col, string text)
     {
         var c = ws.Cell(row, col);

@@ -152,37 +152,63 @@ public class StockService
 
     // ---- Accessories ---------------------------------------------------------
 
-    public AccessoryStockBalance GetOrCreateAccessoryBalance(int accessoryId)
+    /// <summary>
+    /// Finds the accessory balance row for a key, checking the change-tracker first. Returns null
+    /// when the combination has never been stocked. Mirrors <see cref="FindFinishedBalance"/>:
+    /// <paramref name="brandId"/> null selects the shared unpacked pool; a brand id selects that
+    /// brand's packed stock.
+    /// </summary>
+    public AccessoryStockBalance? FindAccessoryBalance(int accessoryId, int? brandId = null)
     {
-        var local = _db.AccessoryStockBalances.Local.FirstOrDefault(x => x.AccessoryId == accessoryId);
+        var local = _db.AccessoryStockBalances.Local
+            .FirstOrDefault(x => x.AccessoryId == accessoryId && x.BrandId == brandId);
         if (local != null) return local;
 
-        var existing = _db.AccessoryStockBalances.FirstOrDefault(x => x.AccessoryId == accessoryId);
+        return _db.AccessoryStockBalances
+            .FirstOrDefault(x => x.AccessoryId == accessoryId && x.BrandId == brandId);
+    }
+
+    /// <summary>Finds the accessory balance row for a key, checking the change-tracker first, else creating it.</summary>
+    public AccessoryStockBalance GetOrCreateAccessoryBalance(int accessoryId, int? brandId = null)
+    {
+        var existing = FindAccessoryBalance(accessoryId, brandId);
         if (existing != null) return existing;
 
-        var created = new AccessoryStockBalance { AccessoryId = accessoryId };
+        var created = new AccessoryStockBalance { AccessoryId = accessoryId, BrandId = brandId };
         _db.AccessoryStockBalances.Add(created);
         return created;
     }
 
-    /// <summary>Accessory analogue of <see cref="ApplyFinished"/>.</summary>
-    public void ApplyAccessory(int accessoryId, StockMovementType type,
-        decimal deltaOnHand, decimal deltaReserved, DateTime date,
+    /// <summary>
+    /// Accessory analogue of <see cref="ApplyFinished"/>: appends an accessory movement and applies
+    /// its signed deltas to the cached balance. One call touches one balance row, identified by
+    /// accessory+brand; packing an accessory (and its reversal) makes two calls, exactly as packing
+    /// finished ware does.
+    /// </summary>
+    public void ApplyAccessory(int accessoryId, int? brandId, StockMovementType type,
+        decimal deltaRawOnHand, decimal deltaPackedOnHand, decimal deltaReserved, DateTime date,
         string? sourceType, int? sourceId, string? remarks)
     {
-        var bal = GetOrCreateAccessoryBalance(accessoryId);
+        GuardBucketBrandInvariant(brandId, deltaRawOnHand, deltaPackedOnHand);
+
+        var bal = GetOrCreateAccessoryBalance(accessoryId, brandId);
         var beforeOnHand = bal.OnHand;
+        var beforeRaw = bal.RawOnHand;
+        var beforePacked = bal.PackedOnHand;
         var beforeReserved = bal.Reserved;
 
-        bal.OnHand += deltaOnHand;
+        bal.RawOnHand += deltaRawOnHand;
+        bal.PackedOnHand += deltaPackedOnHand;
         bal.Reserved += deltaReserved;
 
         _db.AccessoryStockMovements.Add(new AccessoryStockMovement
         {
             Date = date,
             AccessoryId = accessoryId,
+            BrandId = brandId,
             Type = type,
-            DeltaOnHand = deltaOnHand,
+            DeltaRawOnHand = deltaRawOnHand,
+            DeltaPackedOnHand = deltaPackedOnHand,
             DeltaReserved = deltaReserved,
             SourceType = sourceType,
             SourceId = sourceId,
@@ -192,9 +218,15 @@ public class StockService
         });
 
         AddAudit(type.ToString(), "AccessoryStockBalance", sourceId,
-            $"Accessory {accessoryId}: OnHand {beforeOnHand}->{bal.OnHand}, Reserved {beforeReserved}->{bal.Reserved}",
+            $"Accessory {accessoryId}/B{(brandId?.ToString() ?? "-")}: " +
+            $"Unpacked {beforeRaw}->{bal.RawOnHand}, Packed {beforePacked}->{bal.PackedOnHand}, " +
+            $"Reserved {beforeReserved}->{bal.Reserved}",
             beforeOnHand, bal.OnHand);
     }
+
+    /// <summary>Accessory analogue of <see cref="FreeOn"/>.</summary>
+    public static decimal FreeOnAccessory(AccessoryStockBalance? bal) =>
+        bal is null ? 0m : Math.Max(0m, bal.OnHand - bal.Reserved);
 
     // ---- Audit ---------------------------------------------------------------
 
@@ -254,19 +286,22 @@ public class StockService
         }
 
         var accessories = _db.AccessoryStockMovements
-            .GroupBy(m => m.AccessoryId)
+            .GroupBy(m => new { m.AccessoryId, m.BrandId })
             .Select(g => new
             {
-                AccessoryId = g.Key,
-                OnHand = g.Sum(x => x.DeltaOnHand),
+                g.Key.AccessoryId,
+                g.Key.BrandId,
+                RawOnHand = g.Sum(x => x.DeltaRawOnHand),
+                PackedOnHand = g.Sum(x => x.DeltaPackedOnHand),
                 Reserved = g.Sum(x => x.DeltaReserved)
             })
             .ToList();
 
         foreach (var a in accessories)
         {
-            var bal = GetOrCreateAccessoryBalance(a.AccessoryId);
-            bal.OnHand = a.OnHand;
+            var bal = GetOrCreateAccessoryBalance(a.AccessoryId, a.BrandId);
+            bal.RawOnHand = a.RawOnHand;
+            bal.PackedOnHand = a.PackedOnHand;
             bal.Reserved = a.Reserved;
         }
 

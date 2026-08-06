@@ -14,15 +14,17 @@ public class OrderService
     private readonly SaniStockDbContext _db;
     private readonly StockService _stock;
     private readonly StockAllocationService _allocations;
+    private readonly AccessoryStockAllocationService _accessoryAllocations;
     private readonly NumberSequenceService _numbers;
     private readonly IUserContext _user;
 
     public OrderService(SaniStockDbContext db, StockService stock, StockAllocationService allocations,
-        NumberSequenceService numbers, IUserContext user)
+        AccessoryStockAllocationService accessoryAllocations, NumberSequenceService numbers, IUserContext user)
     {
         _db = db;
         _stock = stock;
         _allocations = allocations;
+        _accessoryAllocations = accessoryAllocations;
         _numbers = numbers;
         _user = user;
     }
@@ -45,7 +47,8 @@ public class OrderService
             throw new DomainException("All ordered quantities must be greater than zero.");
         if (!_db.Parties.Any(p => p.Id == input.PartyId))
             throw new DomainException("Selected party does not exist.");
-        foreach (var brandId in input.Lines.Select(l => l.BrandId).Distinct())
+        foreach (var brandId in input.Lines.Select(l => l.BrandId)
+                     .Concat(input.AccessoryLines.Select(a => a.BrandId)).Distinct())
         {
             if (!_db.Brands.Any(b => b.Id == brandId))
                 throw new DomainException("Selected brand does not exist.");
@@ -98,7 +101,8 @@ public class OrderService
             throw new DomainException("All ordered quantities must be greater than zero.");
         if (!_db.Parties.Any(p => p.Id == input.PartyId))
             throw new DomainException("Selected party does not exist.");
-        foreach (var brandId in input.Lines.Select(l => l.BrandId).Distinct())
+        foreach (var brandId in input.Lines.Select(l => l.BrandId)
+                     .Concat(input.AccessoryLines.Select(a => a.BrandId)).Distinct())
         {
             if (!_db.Brands.Any(b => b.Id == brandId))
                 throw new DomainException("Selected brand does not exist.");
@@ -171,6 +175,7 @@ public class OrderService
             var al = new OrderAccessoryLine
             {
                 AccessoryId = a.AccessoryId,
+                BrandId = a.BrandId,
                 QuantityOrdered = a.Quantity,
                 QuantityDispatched = 0,
                 QuantityReserved = a.Quantity
@@ -182,7 +187,9 @@ public class OrderService
         _db.SaveChanges(); // assign order + item-line ids
 
         // Auto-attach each item line's default accessories (recipe × ordered qty), minus any
-        // the caller excluded for that line. These reserve stock exactly like standalone ones.
+        // the caller excluded for that line. These take the parent line's brand — the core reason
+        // brand exists on an accessory line at all — so the reservation prefers that brand's packed
+        // accessory stock over the shared pool, exactly as the item line itself does.
         for (int i = 0; i < lines.Count; i++)
         {
             var lineInput = lines[i];
@@ -205,6 +212,7 @@ public class OrderService
                 {
                     AccessoryId = d.AccessoryId,
                     SourceOrderLineId = parentLine.Id,
+                    BrandId = parentLine.BrandId,
                     QuantityOrdered = qty,
                     QuantityDispatched = 0,
                     QuantityReserved = qty
@@ -244,12 +252,28 @@ public class OrderService
             }
         }
 
-        // Only the lines just added — on an edit the superseded ones were already released.
+        // Only the lines just added — on an edit the superseded ones were already released. Mirrors
+        // the item-line allocation loop above: plan against this line's brand (packed first, then
+        // the shared pool), record the split as allocations, then reserve per source row.
         foreach (var a in newAccessoryLines)
         {
-            _stock.ApplyAccessory(a.AccessoryId,
-                StockMovementType.Reservation, deltaOnHand: 0, deltaReserved: a.QuantityOrdered,
-                order.OrderDate, "Order", order.Id, $"Booking {order.OrderNo}");
+            var steps = _accessoryAllocations.Plan(a.AccessoryId, a.BrandId, a.QuantityOrdered);
+            foreach (var s in steps)
+                a.Allocations.Add(new OrderAccessoryLineAllocation
+                {
+                    BrandId = s.BrandId,
+                    Bucket = s.Bucket,
+                    Priority = s.Priority,
+                    Quantity = s.Quantity
+                });
+
+            foreach (var bySource in steps.GroupBy(s => s.BrandId))
+            {
+                _stock.ApplyAccessory(a.AccessoryId, bySource.Key,
+                    StockMovementType.Reservation, deltaRawOnHand: 0, deltaPackedOnHand: 0,
+                    deltaReserved: bySource.Sum(s => s.Quantity),
+                    order.OrderDate, "Order", order.Id, $"Booking {order.OrderNo}");
+            }
         }
     }
 
@@ -272,11 +296,18 @@ public class OrderService
             }
             l.QuantityReserved = 0;
         }
+        // Mirrors the item-line release just above: release against the exact source rows the
+        // accessory line drew from, in reverse draw order.
         foreach (var a in order.AccessoryLines.Where(a => a.QuantityReserved > 0))
         {
-            _stock.ApplyAccessory(a.AccessoryId,
-                StockMovementType.ReservationRelease, deltaOnHand: 0, deltaReserved: -a.QuantityReserved,
-                DateTime.Today, "Order", order.Id, remark);
+            var draws = _accessoryAllocations.PlanRelease(a, a.QuantityReserved);
+            AccessoryStockAllocationService.MarkReleased(draws);
+            foreach (var (brandId, qty) in AccessoryStockAllocationService.BySource(draws))
+            {
+                _stock.ApplyAccessory(a.AccessoryId, brandId,
+                    StockMovementType.ReservationRelease, deltaRawOnHand: 0, deltaPackedOnHand: 0,
+                    deltaReserved: -qty, DateTime.Today, "Order", order.Id, remark);
+            }
             a.QuantityReserved = 0;
         }
     }

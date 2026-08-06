@@ -35,8 +35,13 @@ public partial class BookingLineAccessory : ObservableObject
     [ObservableProperty] private bool _include = true;
 }
 
-/// <summary>A staged standalone (manually-added) accessory line on the order being built.</summary>
-public record BookingAccessoryLine(int AccessoryId, string Accessory, decimal Quantity);
+/// <summary>
+/// A staged standalone (manually-added) accessory line on the order being built. Names its own
+/// brand, same as an item line — the reservation prefers that brand's packed accessory stock,
+/// falling back to the shared unpacked pool. An auto-attached <see cref="BookingLineAccessory"/>
+/// needs no brand of its own: it always inherits its parent <see cref="BookingLine"/>'s brand.
+/// </summary>
+public record BookingAccessoryLine(int AccessoryId, string Accessory, int BrandId, string Brand, decimal Quantity);
 /// <summary>A recently booked order summary, with what is needed to delete it.</summary>
 public record RecentOrderRow(int Id, string OrderNo, DateTime OrderDate, string Party,
     OrderStatus Status, int LineCount)
@@ -89,6 +94,7 @@ public partial class OrderBookingViewModel : ViewModelBase
 
     // add-accessory fields
     [ObservableProperty] private Accessory? _newAccessory;
+    [ObservableProperty] private Brand? _newAccessoryBrand;
     [ObservableProperty] private string _newAccessoryQty = string.Empty;
 
     public override void OnActivated() => Load();
@@ -157,9 +163,10 @@ public partial class OrderBookingViewModel : ViewModelBase
     [RelayCommand]
     private void AddAccessoryLine()
     {
-        if (NewAccessory is null) { _dialogs.Error("Select an accessory."); return; }
+        if (NewAccessory is null || NewAccessoryBrand is null) { _dialogs.Error("Select an accessory and a brand."); return; }
         if (!decimal.TryParse(NewAccessoryQty, out var q) || q <= 0) { _dialogs.Error("Enter a quantity greater than zero."); return; }
-        AccessoryLines.Add(new BookingAccessoryLine(NewAccessory.Id, NewAccessory.Name, q));
+        AccessoryLines.Add(new BookingAccessoryLine(NewAccessory.Id, NewAccessory.Name,
+            NewAccessoryBrand.Id, NewAccessoryBrand.Name, q));
         NewAccessoryQty = string.Empty;
     }
 
@@ -177,7 +184,7 @@ public partial class OrderBookingViewModel : ViewModelBase
             var input = new OrderInput(Party.Id, OrderDate, string.IsNullOrWhiteSpace(Remarks) ? null : Remarks.Trim(),
                 Lines.Select(l => new OrderLineInput(l.ItemId, l.GradeId, l.ColourId, l.BrandId, l.Quantity,
                     l.Accessories.Where(a => !a.Include).Select(a => a.AccessoryId).ToList())).ToList(),
-                AccessoryLines.Select(a => new OrderAccessoryLineInput(a.AccessoryId, a.Quantity)).ToList());
+                AccessoryLines.Select(a => new OrderAccessoryLineInput(a.AccessoryId, a.BrandId, a.Quantity)).ToList());
             var order = scope.Orders.Book(input);
             _dialogs.Info($"Order {order.OrderNo} booked.");
             Lines.Clear();

@@ -27,15 +27,17 @@ public class DispatchService
     private readonly SaniStockDbContext _db;
     private readonly StockService _stock;
     private readonly StockAllocationService _allocations;
+    private readonly AccessoryStockAllocationService _accessoryAllocations;
     private readonly NumberSequenceService _numbers;
     private readonly IUserContext _user;
 
     public DispatchService(SaniStockDbContext db, StockService stock, StockAllocationService allocations,
-        NumberSequenceService numbers, IUserContext user)
+        AccessoryStockAllocationService accessoryAllocations, NumberSequenceService numbers, IUserContext user)
     {
         _db = db;
         _stock = stock;
         _allocations = allocations;
+        _accessoryAllocations = accessoryAllocations;
         _numbers = numbers;
         _user = user;
     }
@@ -94,6 +96,10 @@ public class DispatchService
         var plans = lineInputs.ToDictionary(
             li => li.OrderLineId,
             li => _allocations.PlanDispatch(order.Lines.First(l => l.Id == li.OrderLineId), li.Quantity));
+        var accPlans = accInputs.ToDictionary(
+            ai => ai.OrderAccessoryLineId,
+            ai => _accessoryAllocations.PlanDispatch(
+                order.AccessoryLines.First(l => l.Id == ai.OrderAccessoryLineId), ai.Quantity));
 
         // Aggregate per stock key: one dispatch may draw the same item+grade+colour+brand via
         // several lines, and the physical split has to be decided against the combined quantity.
@@ -152,18 +158,47 @@ public class DispatchService
                     $"trying to send: {need.Total:0.###}. Produce more first.");
         }
 
-        foreach (var grp in accInputs
-                     .Select(ai => new { Line = order.AccessoryLines.First(l => l.Id == ai.OrderAccessoryLineId), ai.Quantity })
-                     .GroupBy(x => x.Line.AccessoryId))
+        // Accessory analogue of the finished-goods key aggregation above: one dispatch may draw the
+        // same accessory+brand via several lines, tracked split by whether it was reserved against
+        // the shared pool or this brand's packed stock.
+        var accNeeded = new Dictionary<(int AccessoryId, int BrandId), StockNeed>();
+        foreach (var (orderAccessoryLineId, draws) in accPlans)
         {
-            var accNeeded = grp.Sum(x => x.Quantity);
-            var onHand = _db.AccessoryStockBalances
-                .Where(b => b.AccessoryId == grp.Key).Select(b => b.OnHand).FirstOrDefault();
-            if (accNeeded > onHand)
+            var line = order.AccessoryLines.First(l => l.Id == orderAccessoryLineId);
+            foreach (var d in draws)
             {
-                var name = _db.Accessories.Where(a => a.Id == grp.Key).Select(a => a.Name).FirstOrDefault() ?? "accessory";
+                var key = (line.AccessoryId, line.BrandId);
+                accNeeded.TryGetValue(key, out var running);
+                accNeeded[key] = d.BrandId is null
+                    ? running with { AgainstPool = running.AgainstPool + d.Quantity }
+                    : running with { AgainstBrand = running.AgainstBrand + d.Quantity };
+            }
+        }
+
+        // Same pool-rationing rule as the finished-goods loop above: a brand's packed accessory row
+        // belongs to exactly one key, but the unpacked pool is shared across brands of the same
+        // accessory, so it has to be tracked as a running total across keys, not re-read per key.
+        var accSplits = new Dictionary<(int AccessoryId, int BrandId), PhysicalDraw>();
+        var accPoolLeft = new Dictionary<int, decimal>();
+        foreach (var (key, need) in accNeeded)
+        {
+            if (!accPoolLeft.TryGetValue(key.AccessoryId, out var rawOnHand))
+                rawOnHand = accPoolLeft[key.AccessoryId] =
+                    _stock.FindAccessoryBalance(key.AccessoryId)?.RawOnHand ?? 0m;
+
+            var packedOnHand = _stock.FindAccessoryBalance(key.AccessoryId, key.BrandId)?.PackedOnHand ?? 0m;
+
+            var split = StockAllocationService.PlanPhysicalDraw(need.Total, rawOnHand, packedOnHand);
+            accSplits[key] = split;
+            accPoolLeft[key.AccessoryId] = rawOnHand - split.FromRaw;
+
+            if (split.Total < need.Total)
+            {
+                var name = _db.Accessories.Where(a => a.Id == key.AccessoryId).Select(a => a.Name).FirstOrDefault() ?? "accessory";
                 throw new DomainException(
-                    $"Not enough stock to send {name}. In stock: {onHand:0.###}, trying to send: {accNeeded:0.###}. Add stock first.");
+                    $"Not enough stock to send {name} ({BrandName(key.BrandId)}). In stock for this brand: " +
+                    $"{rawOnHand + packedOnHand:0.###} (packed {packedOnHand:0.###}, unpacked {rawOnHand:0.###}), " +
+                    $"trying to send: {need.Total:0.###}. Add stock first.");
             }
         }
 
@@ -212,12 +247,27 @@ public class DispatchService
             line.QuantityDispatched += li.Quantity;
             line.QuantityReserved -= li.Quantity;
         }
+        foreach (var (key, need) in accNeeded)
+        {
+            var split = accSplits[key];
+            var remark = $"Dispatch {dispatch.DispatchNo} (packed {split.FromPacked:0.###}, " +
+                         $"unpacked {split.FromRaw:0.###}, {BrandName(key.BrandId)})";
+
+            if (split.FromRaw != 0 || need.AgainstPool != 0)
+                _stock.ApplyAccessory(key.AccessoryId, brandId: null,
+                    StockMovementType.Dispatch, deltaRawOnHand: -split.FromRaw, deltaPackedOnHand: 0,
+                    deltaReserved: -need.AgainstPool, input.Date, "DispatchEntry", dispatch.Id, remark);
+
+            if (split.FromPacked != 0 || need.AgainstBrand != 0)
+                _stock.ApplyAccessory(key.AccessoryId, key.BrandId,
+                    StockMovementType.Dispatch, deltaRawOnHand: 0, deltaPackedOnHand: -split.FromPacked,
+                    deltaReserved: -need.AgainstBrand, input.Date, "DispatchEntry", dispatch.Id, remark);
+        }
+
         foreach (var ai in accInputs)
         {
             var line = order.AccessoryLines.First(l => l.Id == ai.OrderAccessoryLineId);
-            _stock.ApplyAccessory(line.AccessoryId,
-                StockMovementType.Dispatch, deltaOnHand: -ai.Quantity, deltaReserved: -ai.Quantity,
-                input.Date, "DispatchEntry", dispatch.Id, $"Dispatch {dispatch.DispatchNo}");
+            AccessoryStockAllocationService.MarkDispatched(accPlans[ai.OrderAccessoryLineId]);
             line.QuantityDispatched += ai.Quantity;
             line.QuantityReserved -= ai.Quantity;
         }
@@ -329,8 +379,9 @@ public class DispatchService
             .ToList();
         foreach (var m in accessoryLegs)
         {
-            _stock.ApplyAccessory(m.AccessoryId, StockMovementType.Adjustment,
-                deltaOnHand: -m.DeltaOnHand, deltaReserved: -m.DeltaReserved,
+            _stock.ApplyAccessory(m.AccessoryId, m.BrandId, StockMovementType.Adjustment,
+                deltaRawOnHand: -m.DeltaRawOnHand, deltaPackedOnHand: -m.DeltaPackedOnHand,
+                deltaReserved: -m.DeltaReserved,
                 reversal.Date, "DispatchEntry", reversal.Id,
                 $"Reversal of {original.DispatchNo}");
         }
@@ -346,6 +397,7 @@ public class DispatchService
         foreach (var da in original.AccessoryLines)
         {
             var line = order.AccessoryLines.First(l => l.Id == da.OrderAccessoryLineId);
+            UnconsumeAccessoryAllocations(line, da.Quantity);
             line.QuantityDispatched -= da.Quantity;
             line.QuantityReserved += da.Quantity;
         }
@@ -385,6 +437,25 @@ public class DispatchService
         }
         // Any remainder belonged to a line booked before allocations were recorded, which had none
         // to consume in the first place — there is nothing to give back.
+    }
+
+    /// <summary>Accessory analogue of <see cref="UnconsumeAllocations"/>.</summary>
+    private void UnconsumeAccessoryAllocations(OrderAccessoryLine line, decimal quantity)
+    {
+        var remaining = quantity;
+        var allocations = _db.OrderAccessoryLineAllocations
+            .Where(a => a.OrderAccessoryLineId == line.Id)
+            .OrderByDescending(a => a.Priority)
+            .ToList();
+
+        foreach (var a in allocations)
+        {
+            if (remaining <= 0) break;
+            var give = Math.Min(remaining, a.QuantityDispatched);
+            if (give <= 0) continue;
+            a.QuantityDispatched -= give;
+            remaining -= give;
+        }
     }
 
     /// <summary>
