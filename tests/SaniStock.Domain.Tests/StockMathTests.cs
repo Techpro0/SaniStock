@@ -200,7 +200,7 @@ public class StockMathTests
         using var h = new TestHarness();
         h.AccessoryReceipts.Post(new AccessoryReceiptInput(DateTime.Today, h.Acc1, 30, null));
         var order = h.Orders.Book(new OrderInput(h.PartyX, DateTime.Today, null,
-            Array.Empty<OrderLineInput>(), new[] { new OrderAccessoryLineInput(h.Acc1, 50) }));
+            Array.Empty<OrderLineInput>(), new[] { new OrderAccessoryLineInput(h.Acc1, h.BrandA, 50) }));
         var accLineId = order.AccessoryLines.Single().Id;
 
         Assert.Throws<DomainException>(() => h.Dispatch.Dispatch(new DispatchInput(order.Id, DateTime.Today, null,
@@ -266,7 +266,7 @@ public class StockMathTests
 
         var order = h.Orders.Book(new OrderInput(h.PartyX, DateTime.Today, null,
             Array.Empty<OrderLineInput>(),
-            new[] { new OrderAccessoryLineInput(h.Acc1, 50) }));
+            new[] { new OrderAccessoryLineInput(h.Acc1, h.BrandA, 50) }));
         Assert.Equal((200, 50, 150), h.AccessoryBalance(h.Acc1));
 
         var accLineId = order.AccessoryLines.Single().Id;

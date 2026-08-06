@@ -54,18 +54,36 @@ public static class PdfReports
             landscape: view.Brands.Count > 3).GeneratePdf(path);
     }
 
-    public static void SaveAccessoryStock(IReadOnlyList<AccessoryStockRow> rows, string path, DateTime asOf)
+    /// <summary>
+    /// Accessory stock: one row per accessory, with a packed column per brand between "Not Packed"
+    /// and the totals. Mirrors <see cref="SaveFinishedStock"/> exactly, minus item/grade/colour.
+    /// </summary>
+    public static void SaveAccessoryStock(AccessoryStockView view, string path, DateTime asOf)
     {
         var cols = new List<ReportColumn<AccessoryStockRow>>
         {
             new("Code", 2, r => r.AccessoryCode),
             new("Accessory", 5, r => r.AccessoryName),
-            new("In Stock", 2, r => r.OnHand.ToString("0.###"), alignRight: true),
-            new("Booked", 2, r => r.Reserved.ToString("0.###"), alignRight: true),
-            new("Free", 2, r => r.Available.ToString("0.###"), alignRight: true),
+            new("Not Packed", 2, r => r.RawOnHand.ToString("0.###"), alignRight: true),
         };
+
+        for (var i = 0; i < view.Brands.Count; i++)
+        {
+            var slot = i;
+            cols.Add(new ReportColumn<AccessoryStockRow>(
+                $"Packed\n{view.Brands[slot].Name}", 2,
+                r => slot < r.PackedByBrand.Count ? r.PackedByBrand[slot].Packed.ToString("0.###") : "0",
+                alignRight: true));
+        }
+
+        cols.Add(new ReportColumn<AccessoryStockRow>("Packed Total", 2, r => r.PackedOnHand.ToString("0.###"), alignRight: true));
+        cols.Add(new ReportColumn<AccessoryStockRow>("In Stock", 2, r => r.OnHand.ToString("0.###"), alignRight: true));
+        cols.Add(new ReportColumn<AccessoryStockRow>("Booked", 2, r => r.Reserved.ToString("0.###"), alignRight: true));
+        cols.Add(new ReportColumn<AccessoryStockRow>("Free", 2, r => r.Available.ToString("0.###"), alignRight: true));
+
         new TableReportDocument<AccessoryStockRow>("Accessory Stock",
-            $"As of {asOf:dd-MMM-yyyy}", cols, rows).GeneratePdf(path);
+            $"As of {asOf:dd-MMM-yyyy}", cols, view.Rows,
+            landscape: view.Brands.Count > 3).GeneratePdf(path);
     }
 
     public static void SaveShortfall(IReadOnlyList<ShortfallRow> rows, string path)

@@ -28,6 +28,7 @@ public class SaniStockDbContext : DbContext
 
     // Accessory stock
     public DbSet<AccessoryReceipt> AccessoryReceipts => Set<AccessoryReceipt>();
+    public DbSet<AccessoryPackingEntry> AccessoryPackingEntries => Set<AccessoryPackingEntry>();
     public DbSet<AccessoryStockMovement> AccessoryStockMovements => Set<AccessoryStockMovement>();
     public DbSet<AccessoryStockBalance> AccessoryStockBalances => Set<AccessoryStockBalance>();
 
@@ -42,6 +43,7 @@ public class SaniStockDbContext : DbContext
     public DbSet<OrderLine> OrderLines => Set<OrderLine>();
     public DbSet<OrderLineAllocation> OrderLineAllocations => Set<OrderLineAllocation>();
     public DbSet<OrderAccessoryLine> OrderAccessoryLines => Set<OrderAccessoryLine>();
+    public DbSet<OrderAccessoryLineAllocation> OrderAccessoryLineAllocations => Set<OrderAccessoryLineAllocation>();
     public DbSet<DispatchEntry> DispatchEntries => Set<DispatchEntry>();
     public DbSet<DispatchLine> DispatchLines => Set<DispatchLine>();
     public DbSet<DispatchAccessoryLine> DispatchAccessoryLines => Set<DispatchAccessoryLine>();
@@ -74,24 +76,37 @@ public class SaniStockDbContext : DbContext
             .IsUnique()
             .HasFilter("\"BrandId\" IS NULL")
             .HasDatabaseName("IX_StockBalances_Item_Grade_Colour_Unbranded");
-        b.Entity<AccessoryStockBalance>().HasIndex(x => x.AccessoryId).IsUnique();
+        // Same NULL-distinctness problem as StockBalance: the plain (AccessoryId, BrandId) index
+        // alone would allow several brand-less rows for one accessory, so the filtered index closes
+        // that hole the same way it does there.
+        b.Entity<AccessoryStockBalance>().HasIndex(x => new { x.AccessoryId, x.BrandId }).IsUnique();
+        b.Entity<AccessoryStockBalance>()
+            .HasIndex(x => x.AccessoryId)
+            .IsUnique()
+            .HasFilter("\"BrandId\" IS NULL")
+            .HasDatabaseName("IX_AccessoryStockBalances_Accessory_Unbranded");
         b.Entity<GreenPieceBalance>().HasIndex(x => new { x.ItemId, x.ColourId }).IsUnique();
         b.Entity<RawMaterialBalance>().HasIndex(x => x.RawMaterialId).IsUnique();
 
         // Ledger query indexes
         b.Entity<StockMovement>().HasIndex(x => new { x.ItemId, x.GradeId, x.ColourId, x.BrandId, x.Date });
-        b.Entity<AccessoryStockMovement>().HasIndex(x => new { x.AccessoryId, x.Date });
+        b.Entity<AccessoryStockMovement>().HasIndex(x => new { x.AccessoryId, x.BrandId, x.Date });
         b.Entity<PackingEntry>().HasIndex(x => new { x.ItemId, x.GradeId, x.ColourId, x.Date });
         b.Entity<PackingEntry>().HasIndex(x => x.BatchId);
+        b.Entity<AccessoryPackingEntry>().HasIndex(x => new { x.AccessoryId, x.Date });
+        b.Entity<AccessoryPackingEntry>().HasIndex(x => x.BatchId);
 
         // Read-only computed properties are not columns
         b.Entity<StockBalance>().Ignore(x => x.OnHand);
         b.Entity<StockBalance>().Ignore(x => x.Available);
         b.Entity<StockMovement>().Ignore(x => x.DeltaOnHand);
+        b.Entity<AccessoryStockBalance>().Ignore(x => x.OnHand);
         b.Entity<AccessoryStockBalance>().Ignore(x => x.Available);
+        b.Entity<AccessoryStockMovement>().Ignore(x => x.DeltaOnHand);
         b.Entity<OrderLine>().Ignore(x => x.QuantityPending);
         b.Entity<OrderAccessoryLine>().Ignore(x => x.QuantityPending);
         b.Entity<OrderLineAllocation>().Ignore(x => x.QuantityReserved);
+        b.Entity<OrderAccessoryLineAllocation>().Ignore(x => x.QuantityReserved);
 
         // SQLite has no native decimal type: EF stores decimal as TEXT, which makes numeric
         // comparisons (Reserved > OnHand, negative Available), ORDER BY and SUM behave
@@ -151,6 +166,12 @@ public class SaniStockDbContext : DbContext
             .OnDelete(DeleteBehavior.Restrict);
         b.Entity<OrderLineAllocation>().HasIndex(x => new { x.OrderLineId, x.Priority });
 
+        // Accessory line allocations mirror OrderLineAllocation, minus a grade reference to restrict.
+        b.Entity<OrderAccessoryLineAllocation>()
+            .HasOne(x => x.OrderAccessoryLine).WithMany(l => l.Allocations).HasForeignKey(x => x.OrderAccessoryLineId)
+            .OnDelete(DeleteBehavior.Cascade);
+        b.Entity<OrderAccessoryLineAllocation>().HasIndex(x => new { x.OrderAccessoryLineId, x.Priority });
+
         // Brand references never cascade. Brands are deactivate-only master data, and every row
         // pointing at one is history: which brand stock was packed under, which brand an order was
         // placed for. Restrict also keeps SQLite clear of multiple cascade paths, since orders
@@ -168,6 +189,21 @@ public class SaniStockDbContext : DbContext
             .HasOne(x => x.Brand).WithMany().HasForeignKey(x => x.BrandId)
             .OnDelete(DeleteBehavior.Restrict);
         b.Entity<OrderLineAllocation>()
+            .HasOne(x => x.Brand).WithMany().HasForeignKey(x => x.BrandId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.Entity<AccessoryStockBalance>()
+            .HasOne(x => x.Brand).WithMany().HasForeignKey(x => x.BrandId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.Entity<AccessoryStockMovement>()
+            .HasOne(x => x.Brand).WithMany().HasForeignKey(x => x.BrandId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.Entity<AccessoryPackingEntry>()
+            .HasOne(x => x.Brand).WithMany().HasForeignKey(x => x.BrandId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.Entity<OrderAccessoryLine>()
+            .HasOne(x => x.Brand).WithMany().HasForeignKey(x => x.BrandId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.Entity<OrderAccessoryLineAllocation>()
             .HasOne(x => x.Brand).WithMany().HasForeignKey(x => x.BrandId)
             .OnDelete(DeleteBehavior.Restrict);
 

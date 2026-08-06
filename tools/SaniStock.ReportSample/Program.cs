@@ -89,13 +89,13 @@ using (var wb = new ClosedXML.Excel.XLWorkbook(stockXlsx))
 
 // Accessory stock — the other grid on the Stock screen, and the one its export buttons now follow
 // when the Accessories tab is showing.
-var accessories = reports.GetAccessoryStock();
+var accessoryView = reports.GetAccessoryStock();
 var accPdf = Path.Combine(dir, $"{stem}-accessories.pdf");
-PdfReports.SaveAccessoryStock(accessories, accPdf, DateTime.Today);
+PdfReports.SaveAccessoryStock(accessoryView, accPdf, DateTime.Today);
 
 Console.WriteLine();
-Console.WriteLine($"Accessory stock: {accessories.Count} rows");
+Console.WriteLine($"Accessory stock: {accessoryView.Rows.Count} rows");
 Console.WriteLine($"PDF: {accPdf}");
-foreach (var a in accessories.Take(8))
+foreach (var a in accessoryView.Rows.Take(8))
     Console.WriteLine($"  {a.AccessoryCode,-8} {a.AccessoryName,-22} " +
                       $"on hand {a.OnHand,8:0.###}  booked {a.Reserved,8:0.###}  free {a.Available,8:0.###}");

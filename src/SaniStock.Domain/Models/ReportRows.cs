@@ -38,13 +38,30 @@ public record StockRow(
         PackedByBrand.FirstOrDefault(b => b.BrandId == brandId)?.Packed ?? 0m;
 }
 
-/// <summary>A row in the accessory stock view/report.</summary>
+/// <summary>
+/// A row in the accessory stock view/report: one accessory, with its packed quantity broken out per
+/// brand. "Not packed" (<see cref="RawOnHand"/>) is a single shared number, mirroring <see cref="StockRow"/>.
+/// </summary>
 public record AccessoryStockRow(
     int AccessoryId, string AccessoryCode, string AccessoryName,
-    decimal OnHand, decimal Reserved)
+    decimal RawOnHand, decimal PackedOnHand, decimal Reserved,
+    IReadOnlyList<BrandPacked> PackedByBrand)
 {
+    /// <summary>Total physical stock, packed or not, across every brand.</summary>
+    public decimal OnHand => RawOnHand + PackedOnHand;
+
     public decimal Available => OnHand - Reserved;
+
+    /// <summary>Packed quantity for one brand, 0 if that brand holds none of this accessory.</summary>
+    public decimal PackedFor(int brandId) =>
+        PackedByBrand.FirstOrDefault(b => b.BrandId == brandId)?.Packed ?? 0m;
 }
+
+/// <summary>
+/// The accessory stock view: the brand columns to show, and the rows to show them on. Mirrors
+/// <see cref="FinishedStockView"/> — one row per accessory, brand as extra detail across the row.
+/// </summary>
+public record AccessoryStockView(IReadOnlyList<BrandColumn> Brands, IReadOnlyList<AccessoryStockRow> Rows);
 
 /// <summary>
 /// An open order/party driving a shortfall for a given stock key. <see cref="OrderedGrade"/> is the

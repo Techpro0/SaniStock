@@ -21,10 +21,12 @@ public sealed class TestHarness : IDisposable
     public UserContext User { get; }
     public StockService Stock { get; }
     public StockAllocationService Allocations { get; }
+    public AccessoryStockAllocationService AccessoryAllocations { get; }
     public NumberSequenceService Numbers { get; }
     public ProductionService Production { get; }
     public PackingService Packing { get; }
     public AccessoryReceiptService AccessoryReceipts { get; }
+    public AccessoryPackingService AccessoryPacking { get; }
     public OrderService Orders { get; }
     public DispatchService Dispatch { get; }
     public ReportService Reports { get; }
@@ -70,12 +72,14 @@ public sealed class TestHarness : IDisposable
         User = new UserContext { Username = "tester", Role = UserRole.Admin, IsAuthenticated = true };
         Stock = new StockService(Db, User);
         Allocations = new StockAllocationService(Db, Stock);
+        AccessoryAllocations = new AccessoryStockAllocationService(Db, Stock);
         Numbers = new NumberSequenceService(Db);
         Production = new ProductionService(Db, Stock, User);
         Packing = new PackingService(Db, Stock, User);
         AccessoryReceipts = new AccessoryReceiptService(Db, Stock, User);
-        Orders = new OrderService(Db, Stock, Allocations, Numbers, User);
-        Dispatch = new DispatchService(Db, Stock, Allocations, Numbers, User);
+        AccessoryPacking = new AccessoryPackingService(Db, Stock, User);
+        Orders = new OrderService(Db, Stock, Allocations, AccessoryAllocations, Numbers, User);
+        Dispatch = new DispatchService(Db, Stock, Allocations, AccessoryAllocations, Numbers, User);
         Reports = new ReportService(Db);
         Green = new GreenPieceService(Db, Stock, User);
         Raw = new RawMaterialService(Db, Stock, User);
@@ -176,6 +180,20 @@ public sealed class TestHarness : IDisposable
     public decimal PackedFor(int itemId, int gradeId, int colourId, int brandId) =>
         BrandRow(itemId, gradeId, colourId, brandId).Packed;
 
+    /// <summary>
+    /// Packs <paramref name="quantity"/> of an accessory under a single brand, defaulting to
+    /// <see cref="BrandA"/>. Mirrors <see cref="Pack"/> for finished ware.
+    /// </summary>
+    public AccessoryPackingEntry PackAccessory(int accessoryId, decimal quantity, int? brandId = null) =>
+        AccessoryPacking.Post(new AccessoryPackingInput(DateTime.Today, accessoryId,
+            new[] { new AccessoryPackingBrandLine(brandId ?? BrandA, quantity) }, null)).Single();
+
+    /// <summary>Packs an accessory split across several brands. Mirrors <see cref="PackSplit"/>.</summary>
+    public IReadOnlyList<AccessoryPackingEntry> PackAccessorySplit(int accessoryId,
+        params (int BrandId, decimal Quantity)[] lines) =>
+        AccessoryPacking.Post(new AccessoryPackingInput(DateTime.Today, accessoryId,
+            lines.Select(l => new AccessoryPackingBrandLine(l.BrandId, l.Quantity)).ToList(), null));
+
     // ---- Allocation assertions -----------------------------------------------
 
     /// <summary>The recorded allocation sources for an order line, in draw order.</summary>
@@ -201,11 +219,54 @@ public sealed class TestHarness : IDisposable
             .Select(a => (a.GradeId, a.BrandId, a.Bucket, a.Quantity))
             .ToList();
 
+    /// <summary>
+    /// Reads the accessory balance for one accessory, summed across the brand-less unpacked row and
+    /// every brand's packed row (0/0/0 if none exists yet). Mirrors <see cref="FinishedBalance"/>.
+    /// </summary>
     public (decimal OnHand, decimal Reserved, decimal Available) AccessoryBalance(int accessoryId)
     {
-        var b = Db.AccessoryStockBalances.AsNoTracking().FirstOrDefault(x => x.AccessoryId == accessoryId);
-        return b is null ? (0, 0, 0) : (b.OnHand, b.Reserved, b.Available);
+        var rows = Db.AccessoryStockBalances.AsNoTracking()
+            .Where(x => x.AccessoryId == accessoryId)
+            .ToList();
+        if (rows.Count == 0) return (0, 0, 0);
+        var onHand = rows.Sum(b => b.OnHand);
+        var reserved = rows.Sum(b => b.Reserved);
+        return (onHand, reserved, onHand - reserved);
     }
+
+    /// <summary>The unpacked/packed split for an accessory, packed summed across every brand.</summary>
+    public (decimal Raw, decimal Packed) AccessoryBuckets(int accessoryId)
+    {
+        var rows = Db.AccessoryStockBalances.AsNoTracking()
+            .Where(x => x.AccessoryId == accessoryId)
+            .ToList();
+        return (rows.Sum(b => b.RawOnHand), rows.Sum(b => b.PackedOnHand));
+    }
+
+    /// <summary>One accessory balance row exactly. Mirrors <see cref="BrandRow"/>.</summary>
+    public (decimal Raw, decimal Packed, decimal Reserved) AccessoryBrandRow(int accessoryId, int? brandId)
+    {
+        var b = Db.AccessoryStockBalances.AsNoTracking()
+            .FirstOrDefault(x => x.AccessoryId == accessoryId && x.BrandId == brandId);
+        return b is null ? (0, 0, 0) : (b.RawOnHand, b.PackedOnHand, b.Reserved);
+    }
+
+    /// <summary>Packed accessory quantity held for one brand.</summary>
+    public decimal PackedForAccessory(int accessoryId, int brandId) =>
+        AccessoryBrandRow(accessoryId, brandId).Packed;
+
+    /// <summary>
+    /// The recorded allocation sources for an order accessory line, including which brand each drew
+    /// from, in draw order. Mirrors <see cref="BrandAllocation"/>.
+    /// </summary>
+    public List<(int? BrandId, StockBucket Bucket, decimal Quantity)> AccessoryAllocation(int orderAccessoryLineId) =>
+        Db.OrderAccessoryLineAllocations.AsNoTracking()
+            .Where(a => a.OrderAccessoryLineId == orderAccessoryLineId)
+            .OrderBy(a => a.Priority)
+            .Select(a => new { a.BrandId, a.Bucket, a.Quantity })
+            .ToList()
+            .Select(a => (a.BrandId, a.Bucket, a.Quantity))
+            .ToList();
 
     public void Dispose()
     {

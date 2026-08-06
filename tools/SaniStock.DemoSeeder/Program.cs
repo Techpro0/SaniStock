@@ -47,13 +47,14 @@ var stock = new StockService(db, user);
 var numbers = new NumberSequenceService(db);
 var master = new MasterDataService(db);
 var allocations = new StockAllocationService(db, stock);
+var accessoryAllocations = new AccessoryStockAllocationService(db, stock);
 var production = new ProductionService(db, stock, user);
 var packing = new PackingService(db, stock, user);
 var accReceipts = new AccessoryReceiptService(db, stock, user);
 var green = new GreenPieceService(db, stock, user);
 var raw = new RawMaterialService(db, stock, user);
-var orders = new OrderService(db, stock, allocations, numbers, user);
-var dispatch = new DispatchService(db, stock, allocations, numbers, user);
+var orders = new OrderService(db, stock, allocations, accessoryAllocations, numbers, user);
+var dispatch = new DispatchService(db, stock, allocations, accessoryAllocations, numbers, user);
 
 int PtId(string code) => db.ProductTypes.Where(p => p.Code == code).Select(p => p.Id).First();
 int GradeId(string name) => db.Grades.Where(g => g.Name == name).Select(g => g.Id).First();
@@ -230,7 +231,7 @@ orders.Book(new OrderInput(party["Metro Tiles & Sanitary"], today.AddDays(-2), $
 // 5) Cancelled order (reservation released for item + accessories).
 var order5 = orders.Book(new OrderInput(party["Kumar Hardware"], today.AddDays(-4), $"{DemoTag} tentative",
     new[] { Line("Wall Mounted Urinal", g1, "White", "Aquaria", 30) },
-    new[] { new OrderAccessoryLineInput(acc["Connection Pipe"], 30) }));
+    new[] { new OrderAccessoryLineInput(acc["Connection Pipe"], brands["Aquaria"], 30) }));
 orders.Cancel(order5.Id, "Customer postponed project");
 
 // 6) Shortfall demo — books far more than produced, driving Available negative.

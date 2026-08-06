@@ -24,8 +24,12 @@ public record PackingInput(DateTime Date, int ItemId, int GradeId, int ColourId,
 public record OrderLineInput(int ItemId, int GradeId, int ColourId, int BrandId, decimal Quantity,
     IReadOnlyList<int>? ExcludedAccessoryIds = null);
 
-/// <summary>One manually-added standalone accessory line requested when booking an order.</summary>
-public record OrderAccessoryLineInput(int AccessoryId, decimal Quantity);
+/// <summary>
+/// One manually-added standalone accessory line requested when booking an order.
+/// <see cref="BrandId"/> is required, same as an item line: the reservation prefers that brand's
+/// packed accessory stock, falling back to the shared unpacked pool.
+/// </summary>
+public record OrderAccessoryLineInput(int AccessoryId, int BrandId, decimal Quantity);
 
 /// <summary>Input to book a new order.</summary>
 public record OrderInput(
@@ -51,6 +55,16 @@ public record DispatchInput(
 
 /// <summary>Input to record accessory stock received.</summary>
 public record AccessoryReceiptInput(DateTime Date, int AccessoryId, decimal Quantity, string? Remarks);
+
+/// <summary>How much of an accessory packing action goes to one brand.</summary>
+public record AccessoryPackingBrandLine(int BrandId, decimal Quantity);
+
+/// <summary>
+/// Input to pack already-received accessory stock, moving it from the shared unpacked pool into
+/// packed stock. Mirrors <see cref="PackingInput"/> for finished ware, minus grade/colour.
+/// </summary>
+public record AccessoryPackingInput(DateTime Date, int AccessoryId,
+    IReadOnlyList<AccessoryPackingBrandLine> Lines, string? Remarks);
 
 /// <summary>Input to record a green-ware (unfired) in/out movement.</summary>
 public record GreenPieceInput(DateTime Date, int ItemId, int ColourId, bool IsIssue, decimal Quantity, string? Remarks);

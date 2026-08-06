@@ -13,118 +13,229 @@
                        Style="{StaticResource Muted}" />
         </StackPanel>
 
-        <Grid Grid.Row="1">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="380" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
+        <TabControl Grid.Row="1" Background="Transparent" BorderThickness="0">
+            <TabItem Header="Finished Goods">
+                <Grid Margin="0,10,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="380" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
 
-            <Border Style="{StaticResource Card}" VerticalAlignment="Top" Margin="0,0,12,0">
-                <StackPanel>
-                    <TextBlock Text="Pack Goods" Style="{StaticResource H2}" />
-                    <TextBlock Text="Date" Style="{StaticResource FieldLabel}" />
-                    <DatePicker SelectedDate="{Binding PackDate}" Margin="0,0,0,10" />
-                    <TextBlock Text="Item" Style="{StaticResource FieldLabel}" />
-                    <ComboBox ItemsSource="{Binding Items}" SelectedItem="{Binding PackItem}" IsSynchronizedWithCurrentItem="False"
-                              DisplayMemberPath="Name" Margin="0,0,0,10" />
-                    <TextBlock Text="Grade" Style="{StaticResource FieldLabel}" />
-                    <ComboBox ItemsSource="{Binding Grades}" SelectedItem="{Binding PackGrade}" IsSynchronizedWithCurrentItem="False"
-                              DisplayMemberPath="Name" Margin="0,0,0,10" />
-                    <TextBlock Text="Colour" Style="{StaticResource FieldLabel}" />
-                    <ComboBox ItemsSource="{Binding Colours}" SelectedItem="{Binding PackColour}" IsSynchronizedWithCurrentItem="False"
-                              DisplayMemberPath="Name" Margin="0,0,0,10" />
+                    <Border Style="{StaticResource Card}" VerticalAlignment="Top" Margin="0,0,12,0">
+                        <StackPanel>
+                            <TextBlock Text="Pack Goods" Style="{StaticResource H2}" />
+                            <TextBlock Text="Date" Style="{StaticResource FieldLabel}" />
+                            <DatePicker SelectedDate="{Binding PackDate}" Margin="0,0,0,10" />
+                            <TextBlock Text="Item" Style="{StaticResource FieldLabel}" />
+                            <ComboBox ItemsSource="{Binding Items}" SelectedItem="{Binding PackItem}" IsSynchronizedWithCurrentItem="False"
+                                      DisplayMemberPath="Name" Margin="0,0,0,10" />
+                            <TextBlock Text="Grade" Style="{StaticResource FieldLabel}" />
+                            <ComboBox ItemsSource="{Binding Grades}" SelectedItem="{Binding PackGrade}" IsSynchronizedWithCurrentItem="False"
+                                      DisplayMemberPath="Name" Margin="0,0,0,10" />
+                            <TextBlock Text="Colour" Style="{StaticResource FieldLabel}" />
+                            <ComboBox ItemsSource="{Binding Colours}" SelectedItem="{Binding PackColour}" IsSynchronizedWithCurrentItem="False"
+                                      DisplayMemberPath="Name" Margin="0,0,0,10" />
 
-                    <Border Background="#F2F6FC" CornerRadius="6" Padding="10" Margin="0,0,0,12">
-                        <TextBlock Text="{Binding SelectionSummary}" TextWrapping="Wrap" FontSize="12" />
+                            <Border Background="#F2F6FC" CornerRadius="6" Padding="10" Margin="0,0,0,12">
+                                <TextBlock Text="{Binding SelectionSummary}" TextWrapping="Wrap" FontSize="12" />
+                            </Border>
+
+                            <!-- One row per brand this packing is split across. Add as many as needed;
+                                 they are checked against the unpacked balance as a group. -->
+                            <TextBlock Text="Pack Under Brand" Style="{StaticResource FieldLabel}" />
+                            <ItemsControl ItemsSource="{Binding BrandLines}" Margin="0,0,0,6">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="90" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <ComboBox Grid.Column="0"
+                                                      ItemsSource="{Binding DataContext.Brands,
+                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                      SelectedItem="{Binding Brand}" DisplayMemberPath="Name" IsSynchronizedWithCurrentItem="False" />
+                                            <TextBox Grid.Column="1" Margin="6,0,0,0"
+                                                     Text="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}"
+                                                     Tag="Qty" />
+                                            <Button Grid.Column="2" Content="✕" Margin="6,0,0,0" Padding="9,3"
+                                                    FontSize="11" ToolTip="Remove this brand"
+                                                    Style="{StaticResource SecondaryButton}"
+                                                    Command="{Binding DataContext.RemoveBrandLineCommand,
+                                                        RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <Button Content="＋ Add brand" Command="{Binding AddBrandLineCommand}"
+                                    Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left"
+                                    Padding="10,4" FontSize="12" Margin="0,0,0,8" />
+
+                            <TextBlock Text="{Binding BrandTotalSummary}" FontSize="12" Margin="0,0,0,12">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#5F6B7A" />
+                                        <Style.Triggers>
+                                            <!-- The split adds up to more than is unpacked; Save will refuse it. -->
+                                            <DataTrigger Binding="{Binding IsOverAllocated}" Value="True">
+                                                <Setter Property="Foreground" Value="#C62828" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <TextBlock Text="Notes (optional)" Style="{StaticResource FieldLabel}" />
+                            <TextBox Text="{Binding PackRemarks, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,14" />
+                            <Button Content="💾  Save" Command="{Binding PostPackingCommand}"
+                                    Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Width="140" Height="42" FontSize="15" />
+                        </StackPanel>
                     </Border>
 
-                    <!-- One row per brand this packing is split across. Add as many as needed;
-                         they are checked against the unpacked balance as a group. -->
-                    <TextBlock Text="Pack Under Brand" Style="{StaticResource FieldLabel}" />
-                    <ItemsControl ItemsSource="{Binding BrandLines}" Margin="0,0,0,6">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="0,0,0,6">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="90" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <ComboBox Grid.Column="0"
-                                              ItemsSource="{Binding DataContext.Brands,
-                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                              SelectedItem="{Binding Brand}" DisplayMemberPath="Name" IsSynchronizedWithCurrentItem="False" />
-                                    <TextBox Grid.Column="1" Margin="6,0,0,0"
-                                             Text="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}"
-                                             Tag="Qty" />
-                                    <Button Grid.Column="2" Content="✕" Margin="6,0,0,0" Padding="9,3"
-                                            FontSize="11" ToolTip="Remove this brand"
-                                            Style="{StaticResource SecondaryButton}"
-                                            Command="{Binding DataContext.RemoveBrandLineCommand,
-                                                RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}" />
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                    <Border Grid.Column="1" Style="{StaticResource Card}">
+                        <DockPanel>
+                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,4">
+                                <TextBlock Text="Recently Packed" Style="{StaticResource H2}" DockPanel.Dock="Left" />
+                                <Button Content="⟳ Refresh" Command="{Binding LoadCommand}"
+                                        Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" />
+                            </DockPanel>
+                            <DataGrid ItemsSource="{Binding History}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Date" Binding="{Binding Date, StringFormat=dd-MMM-yyyy}" Width="Auto" />
+                                    <DataGridTextColumn Header="Item" Binding="{Binding Item}" Width="*" />
+                                    <DataGridTextColumn Header="Grade" Binding="{Binding Grade}" Width="Auto" />
+                                    <DataGridTextColumn Header="Colour" Binding="{Binding Colour}" Width="Auto" />
+                                    <DataGridTextColumn Header="Brand" Binding="{Binding Brand}" Width="Auto" />
+                                    <DataGridTextColumn Header="Qty" Binding="{Binding Quantity, StringFormat={}{0:0.###}}" Width="Auto" />
+                                    <DataGridTemplateColumn Header="" Width="90">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Button Content="Undo" Padding="8,3" FontSize="11"
+                                                        Style="{StaticResource SecondaryButton}"
+                                                        ToolTip="Move this quantity back from packed to unpacked for this brand."
+                                                        Command="{Binding DataContext.ReversePackingCommand,
+                                                            RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
 
-                    <Button Content="＋ Add brand" Command="{Binding AddBrandLineCommand}"
-                            Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left"
-                            Padding="10,4" FontSize="12" Margin="0,0,0,8" />
+            <TabItem Header="Accessories">
+                <Grid Margin="0,10,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="380" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
 
-                    <TextBlock Text="{Binding BrandTotalSummary}" FontSize="12" Margin="0,0,0,12">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Foreground" Value="#5F6B7A" />
-                                <Style.Triggers>
-                                    <!-- The split adds up to more than is unpacked; Save will refuse it. -->
-                                    <DataTrigger Binding="{Binding IsOverAllocated}" Value="True">
-                                        <Setter Property="Foreground" Value="#C62828" />
-                                        <Setter Property="FontWeight" Value="SemiBold" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
+                    <Border Style="{StaticResource Card}" VerticalAlignment="Top" Margin="0,0,12,0">
+                        <StackPanel>
+                            <TextBlock Text="Pack Accessory" Style="{StaticResource H2}" />
+                            <TextBlock Text="Date" Style="{StaticResource FieldLabel}" />
+                            <DatePicker SelectedDate="{Binding AccessoryPackDate}" Margin="0,0,0,10" />
+                            <TextBlock Text="Accessory" Style="{StaticResource FieldLabel}" />
+                            <ComboBox ItemsSource="{Binding Accessories}" SelectedItem="{Binding PackAccessory}" IsSynchronizedWithCurrentItem="False"
+                                      DisplayMemberPath="Name" Margin="0,0,0,10" />
 
-                    <TextBlock Text="Notes (optional)" Style="{StaticResource FieldLabel}" />
-                    <TextBox Text="{Binding PackRemarks, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,14" />
-                    <Button Content="💾  Save" Command="{Binding PostPackingCommand}"
-                            Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Width="140" Height="42" FontSize="15" />
-                </StackPanel>
-            </Border>
+                            <Border Background="#F2F6FC" CornerRadius="6" Padding="10" Margin="0,0,0,12">
+                                <TextBlock Text="{Binding AccessorySelectionSummary}" TextWrapping="Wrap" FontSize="12" />
+                            </Border>
 
-            <Border Grid.Column="1" Style="{StaticResource Card}">
-                <DockPanel>
-                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,4">
-                        <TextBlock Text="Recently Packed" Style="{StaticResource H2}" DockPanel.Dock="Left" />
-                        <Button Content="⟳ Refresh" Command="{Binding LoadCommand}"
-                                Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" />
-                    </DockPanel>
-                    <DataGrid ItemsSource="{Binding History}">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Date" Binding="{Binding Date, StringFormat=dd-MMM-yyyy}" Width="Auto" />
-                            <DataGridTextColumn Header="Item" Binding="{Binding Item}" Width="*" />
-                            <DataGridTextColumn Header="Grade" Binding="{Binding Grade}" Width="Auto" />
-                            <DataGridTextColumn Header="Colour" Binding="{Binding Colour}" Width="Auto" />
-                            <DataGridTextColumn Header="Brand" Binding="{Binding Brand}" Width="Auto" />
-                            <DataGridTextColumn Header="Qty" Binding="{Binding Quantity, StringFormat={}{0:0.###}}" Width="Auto" />
-                            <DataGridTemplateColumn Header="" Width="90">
-                                <DataGridTemplateColumn.CellTemplate>
+                            <!-- Same brand-split UX as Finished Goods: a run of an accessory can be
+                                 packed across several brands in one action. -->
+                            <TextBlock Text="Pack Under Brand" Style="{StaticResource FieldLabel}" />
+                            <ItemsControl ItemsSource="{Binding AccessoryBrandLines}" Margin="0,0,0,6">
+                                <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Button Content="Undo" Padding="8,3" FontSize="11"
-                                                Style="{StaticResource SecondaryButton}"
-                                                ToolTip="Move this quantity back from packed to unpacked for this brand."
-                                                Command="{Binding DataContext.ReversePackingCommand,
-                                                    RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                CommandParameter="{Binding}" />
+                                        <Grid Margin="0,0,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="90" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <ComboBox Grid.Column="0"
+                                                      ItemsSource="{Binding DataContext.Brands,
+                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                      SelectedItem="{Binding Brand}" DisplayMemberPath="Name" IsSynchronizedWithCurrentItem="False" />
+                                            <TextBox Grid.Column="1" Margin="6,0,0,0"
+                                                     Text="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}"
+                                                     Tag="Qty" />
+                                            <Button Grid.Column="2" Content="✕" Margin="6,0,0,0" Padding="9,3"
+                                                    FontSize="11" ToolTip="Remove this brand"
+                                                    Style="{StaticResource SecondaryButton}"
+                                                    Command="{Binding DataContext.RemoveAccessoryBrandLineCommand,
+                                                        RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
                                     </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </DockPanel>
-            </Border>
-        </Grid>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <Button Content="＋ Add brand" Command="{Binding AddAccessoryBrandLineCommand}"
+                                    Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left"
+                                    Padding="10,4" FontSize="12" Margin="0,0,0,8" />
+
+                            <TextBlock Text="{Binding AccessoryBrandTotalSummary}" FontSize="12" Margin="0,0,0,12">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#5F6B7A" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding AccessoryIsOverAllocated}" Value="True">
+                                                <Setter Property="Foreground" Value="#C62828" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <TextBlock Text="Notes (optional)" Style="{StaticResource FieldLabel}" />
+                            <TextBox Text="{Binding AccessoryPackRemarks, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,14" />
+                            <Button Content="💾  Save" Command="{Binding PostAccessoryPackingCommand}"
+                                    Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Width="140" Height="42" FontSize="15" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1" Style="{StaticResource Card}">
+                        <DockPanel>
+                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,4">
+                                <TextBlock Text="Recently Packed" Style="{StaticResource H2}" DockPanel.Dock="Left" />
+                                <Button Content="⟳ Refresh" Command="{Binding LoadCommand}"
+                                        Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" />
+                            </DockPanel>
+                            <DataGrid ItemsSource="{Binding AccessoryHistory}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Date" Binding="{Binding Date, StringFormat=dd-MMM-yyyy}" Width="Auto" />
+                                    <DataGridTextColumn Header="Accessory" Binding="{Binding Accessory}" Width="*" />
+                                    <DataGridTextColumn Header="Brand" Binding="{Binding Brand}" Width="Auto" />
+                                    <DataGridTextColumn Header="Qty" Binding="{Binding Quantity, StringFormat={}{0:0.###}}" Width="Auto" />
+                                    <DataGridTemplateColumn Header="" Width="90">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Button Content="Undo" Padding="8,3" FontSize="11"
+                                                        Style="{StaticResource SecondaryButton}"
+                                                        ToolTip="Move this quantity back from packed to unpacked for this brand."
+                                                        Command="{Binding DataContext.ReverseAccessoryPackingCommand,
+                                                            RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
     </Grid>
 </UserControl>

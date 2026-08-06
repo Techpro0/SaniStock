@@ -50,10 +50,12 @@ public partial class StockViewModel : ViewModelBase
         using var scope = _scopes.Create();
         var view = scope.Reports.GetFinishedStock();
         _allFinished = view.Rows.ToList();
-        _allAccessory = scope.Reports.GetAccessoryStock();
+        _allAccessory = scope.Reports.GetAccessoryStock().Rows.ToList();
 
         // Brands are admin-managed and rarely change, but a newly added one has to appear without
         // restarting the app, so the columns are rebuilt on every refresh rather than once.
+        // GetStockBrandColumns() considers both finished and accessory packed stock, so the same
+        // list is correct for both grids.
         BrandColumns = view.Brands;
         BrandColumnsChanged?.Invoke(this, EventArgs.Empty);
 
@@ -83,7 +85,9 @@ public partial class StockViewModel : ViewModelBase
         if (f.Length > 0)
             acc = acc.Where(r =>
                 r.AccessoryCode.Contains(f, StringComparison.OrdinalIgnoreCase) ||
-                r.AccessoryName.Contains(f, StringComparison.OrdinalIgnoreCase));
+                r.AccessoryName.Contains(f, StringComparison.OrdinalIgnoreCase) ||
+                r.PackedByBrand.Any(b => b.Packed != 0 &&
+                                         b.Brand.Contains(f, StringComparison.OrdinalIgnoreCase)));
         if (ShortfallOnly) acc = acc.Where(r => r.Available < 0);
 
         Accessories.Clear();
@@ -92,6 +96,9 @@ public partial class StockViewModel : ViewModelBase
 
     /// <summary>The rows currently on screen, packaged with the brand columns they are aligned to.</summary>
     private FinishedStockView CurrentView() => new(BrandColumns, Finished.ToList());
+
+    /// <summary>Accessory analogue of <see cref="CurrentView"/>.</summary>
+    private AccessoryStockView CurrentAccessoryView() => new(BrandColumns, Accessories.ToList());
 
     // ---- Exports -------------------------------------------------------------
 
@@ -118,7 +125,7 @@ public partial class StockViewModel : ViewModelBase
         try
         {
             if (ShowingAccessories)
-                PdfReports.SaveAccessoryStock(Accessories.ToList(), path, DateTime.Today);
+                PdfReports.SaveAccessoryStock(CurrentAccessoryView(), path, DateTime.Today);
             else
                 PdfReports.SaveFinishedStock(CurrentView(), path, DateTime.Today);
 
@@ -135,9 +142,9 @@ public partial class StockViewModel : ViewModelBase
         try
         {
             if (ShowingAccessories)
-                // The generic reflection exporter is fine here: an accessory row is all simple
-                // properties. The finished grid is not — hence the hand-written writer below.
-                ExcelExporter.Save(Accessories.ToList(), path, "Accessory Stock");
+                // Hand-laid out, same as the finished grid below — the generic reflection exporter
+                // would drop the per-brand breakdown on the floor.
+                ExcelReports.SaveAccessoryStock(CurrentAccessoryView(), path);
             else
                 // Hand-laid out rather than the generic reflection exporter, which would drop the
                 // per-brand breakdown on the floor.

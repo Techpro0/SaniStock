@@ -76,9 +76,9 @@ public class ReportService
 
     /// <summary>
     /// The brands worth a column: every active brand, plus any deactivated brand still holding
-    /// packed stock. Without that second group, deactivating a brand would quietly hide real,
-    /// shippable goods — the same reason the item setup screen keeps listing an inactive accessory
-    /// that is still in a recipe.
+    /// packed stock — finished ware or accessories. Without that second group, deactivating a brand
+    /// would quietly hide real, shippable goods — the same reason the item setup screen keeps
+    /// listing an inactive accessory that is still in a recipe.
     /// </summary>
     public List<BrandColumn> GetStockBrandColumns()
     {
@@ -87,25 +87,55 @@ public class ReportService
             .Select(b => b.BrandId!.Value)
             .Distinct()
             .ToList();
+        var brandsWithAccessoryStock = _db.AccessoryStockBalances.AsNoTracking()
+            .Where(b => b.BrandId != null && b.PackedOnHand != 0)
+            .Select(b => b.BrandId!.Value)
+            .Distinct()
+            .ToList();
+        var brandsHoldingStock = brandsWithStock.Concat(brandsWithAccessoryStock).ToHashSet();
 
         return _db.Brands.AsNoTracking()
-            .Where(b => b.IsActive || brandsWithStock.Contains(b.Id))
+            .Where(b => b.IsActive || brandsHoldingStock.Contains(b.Id))
             .OrderBy(b => b.Name)
             .Select(b => new BrandColumn(b.Id, b.Code, b.Name))
             .ToList();
     }
 
-    public List<AccessoryStockRow> GetAccessoryStock(bool includeZero = true)
+    /// <summary>
+    /// The accessory stock view: one row per accessory with the packed quantity broken out per
+    /// brand, plus the brand columns those breakdowns are aligned to. Mirrors <see cref="GetFinishedStock"/>.
+    /// </summary>
+    public AccessoryStockView GetAccessoryStock(bool includeZero = true)
     {
-        var q =
-            from b in _db.AccessoryStockBalances.AsNoTracking()
-            join a in _db.Accessories on b.AccessoryId equals a.Id
-            select new AccessoryStockRow(a.Id, a.Code, a.Name, b.OnHand, b.Reserved);
+        var brands = GetStockBrandColumns();
 
-        var rows = q.ToList();
+        var balances =
+            (from b in _db.AccessoryStockBalances.AsNoTracking()
+             join a in _db.Accessories on b.AccessoryId equals a.Id
+             select new { AccessoryId = a.Id, a.Code, Name = a.Name, b.BrandId, b.RawOnHand, b.PackedOnHand, b.Reserved })
+            .ToList();
+
+        var rows = balances
+            .GroupBy(b => b.AccessoryId)
+            .Select(grp =>
+            {
+                var first = grp.First();
+                var packedByBrand = brands
+                    .Select(col => new BrandPacked(col.BrandId, col.Name,
+                        grp.Where(b => b.BrandId == col.BrandId).Sum(b => b.PackedOnHand)))
+                    .ToList();
+
+                return new AccessoryStockRow(
+                    first.AccessoryId, first.Code, first.Name,
+                    grp.Sum(b => b.RawOnHand), grp.Sum(b => b.PackedOnHand), grp.Sum(b => b.Reserved),
+                    packedByBrand);
+            })
+            .ToList();
+
         if (!includeZero)
             rows = rows.Where(r => r.OnHand != 0 || r.Reserved != 0).ToList();
-        return rows.OrderBy(r => r.AccessoryName).ToList();
+
+        return new AccessoryStockView(brands, rows.OrderBy(r => r.AccessoryName).ToList());
     }
 
     // ---- Shortfall / production planning -------------------------------------

@@ -35,20 +35,20 @@ public class AccessoryReceiptService
         _db.AccessoryReceipts.Add(receipt);
         _db.SaveChanges();
 
-        _stock.ApplyAccessory(input.AccessoryId, StockMovementType.Production,
-            deltaOnHand: input.Quantity, deltaReserved: 0,
+        _stock.ApplyAccessory(input.AccessoryId, brandId: null, StockMovementType.Production,
+            deltaRawOnHand: input.Quantity, deltaPackedOnHand: 0, deltaReserved: 0,
             input.Date, "AccessoryReceipt", receipt.Id, input.Remarks);
         _db.SaveChanges();
         return receipt;
     }
 
     /// <summary>
-    /// Reverses a receipt by taking the same quantity back out and recording a linked reversing
-    /// entry. The original row is left untouched (immutable).
+    /// Reverses a receipt by taking the same quantity back out of the unpacked pool and recording a
+    /// linked reversing entry. The original row is left untouched (immutable).
     /// <para>
-    /// Blocked once the stock has gone out again: taking back what has already shipped would drive
-    /// the accessory's on-hand negative and quietly misstate every later balance. This mirrors the
-    /// guard <see cref="ProductionService.Reverse"/> applies to finished ware.
+    /// Blocked once the received quantity has been packed: a receipt only ever lands unpacked, so
+    /// undoing it draws on the unpacked balance the same way undoing a finished-goods production
+    /// entry does. This mirrors the guard <see cref="ProductionService.Reverse"/> applies.
     /// </para>
     /// </summary>
     public AccessoryReceipt Reverse(int receiptId, string? remarks = null)
@@ -60,13 +60,12 @@ public class AccessoryReceiptService
         if (_db.AccessoryReceipts.Any(r => r.ReversesEntryId == receiptId))
             throw new DomainException("This receipt has already been reversed.");
 
-        var onHand = _db.AccessoryStockBalances
-            .Where(b => b.AccessoryId == original.AccessoryId)
-            .Select(b => (decimal?)b.OnHand).FirstOrDefault() ?? 0m;
-        if (onHand < original.Quantity)
+        var rawOnHand = _stock.FindAccessoryBalance(original.AccessoryId)?.RawOnHand ?? 0m;
+        if (rawOnHand < original.Quantity)
             throw new DomainException(
-                $"This receipt of {original.Quantity:0.###} cannot be reversed: only {onHand:0.###} " +
-                $"of {AccessoryName(original.AccessoryId)} is still in stock. Some of it has already gone out.");
+                $"This receipt of {original.Quantity:0.###} cannot be reversed: only {rawOnHand:0.###} " +
+                $"of {AccessoryName(original.AccessoryId)} is still unpacked. Undo the packing for this " +
+                "accessory first.");
 
         var reversal = new AccessoryReceipt
         {
@@ -82,8 +81,8 @@ public class AccessoryReceiptService
         _db.AccessoryReceipts.Add(reversal);
         _db.SaveChanges();
 
-        _stock.ApplyAccessory(original.AccessoryId, StockMovementType.Adjustment,
-            deltaOnHand: -original.Quantity, deltaReserved: 0,
+        _stock.ApplyAccessory(original.AccessoryId, brandId: null, StockMovementType.Adjustment,
+            deltaRawOnHand: -original.Quantity, deltaPackedOnHand: 0, deltaReserved: 0,
             reversal.Date, "AccessoryReceipt", reversal.Id, reversal.Remarks);
         _db.SaveChanges();
         return reversal;
