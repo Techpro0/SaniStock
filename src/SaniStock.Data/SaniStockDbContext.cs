@@ -206,6 +206,9 @@ public class SaniStockDbContext : DbContext
         b.Entity<OrderAccessoryLineAllocation>()
             .HasOne(x => x.Brand).WithMany().HasForeignKey(x => x.BrandId)
             .OnDelete(DeleteBehavior.Restrict);
+        b.Entity<AccessoryReceipt>()
+            .HasOne(x => x.Brand).WithMany().HasForeignKey(x => x.BrandId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         base.OnModelCreating(b);
     }

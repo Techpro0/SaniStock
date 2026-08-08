@@ -53,8 +53,14 @@ public record DispatchInput(
     IReadOnlyList<DispatchLineInput> Lines,
     IReadOnlyList<DispatchAccessoryLineInput> AccessoryLines);
 
-/// <summary>Input to record accessory stock received.</summary>
-public record AccessoryReceiptInput(DateTime Date, int AccessoryId, decimal Quantity, string? Remarks);
+/// <summary>
+/// Input to record accessory stock received. <paramref name="BrandId"/> is null for the ordinary
+/// case (lands in the shared unpacked pool); set it when the goods arrived already packaged under
+/// a brand, so the receipt lands directly on that brand's packed stock without a separate trip to
+/// Packing.
+/// </summary>
+public record AccessoryReceiptInput(DateTime Date, int AccessoryId, decimal Quantity, string? Remarks,
+    int? BrandId = null);
 
 /// <summary>How much of an accessory packing action goes to one brand.</summary>
 public record AccessoryPackingBrandLine(int BrandId, decimal Quantity);
