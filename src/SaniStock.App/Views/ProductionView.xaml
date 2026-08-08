@@ -90,6 +90,20 @@
                                       DisplayMemberPath="Name" Margin="0,0,0,10" />
                             <TextBlock Text="How Many" Style="{StaticResource FieldLabel}" />
                             <TextBox Text="{Binding AccQty, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
+                            <TextBlock Text="Already Packed Under Brand (optional)" Style="{StaticResource FieldLabel}"
+                                       ToolTip="Leave blank for an ordinary receipt into the shared unpacked pool. Choose a brand when the goods arrived already packaged — e.g. an outside import — so this receipt is packed under that brand immediately, with no separate trip to Packing." />
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <ComboBox Grid.Column="0" ItemsSource="{Binding Brands}" SelectedItem="{Binding AccBrand}"
+                                          DisplayMemberPath="Name" />
+                                <Button Grid.Column="1" Content="✕" Margin="6,0,0,0" Padding="9,3" FontSize="11"
+                                        ToolTip="Clear — receive into the shared unpacked pool instead"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Command="{Binding ClearAccBrandCommand}" />
+                            </Grid>
                             <TextBlock Text="Notes (optional)" Style="{StaticResource FieldLabel}" />
                             <TextBox Text="{Binding AccRemarks, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,14" />
                             <Button Content="💾  Save" Command="{Binding PostAccessoryCommand}"
@@ -104,6 +118,7 @@
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Date" Binding="{Binding Date, StringFormat=dd-MMM-yyyy}" Width="Auto" />
                                     <DataGridTextColumn Header="Accessory" Binding="{Binding Accessory}" Width="*" />
+                                    <DataGridTextColumn Header="Brand" Binding="{Binding Brand}" Width="Auto" />
                                     <DataGridTextColumn Header="Qty" Binding="{Binding Quantity, StringFormat={}{0:0.###}}" Width="Auto" />
                                     <DataGridTemplateColumn Header="" Width="90">
                                         <DataGridTemplateColumn.CellTemplate>

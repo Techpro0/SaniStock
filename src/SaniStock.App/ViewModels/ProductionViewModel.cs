@@ -13,8 +13,12 @@ namespace SaniStock.App.ViewModels;
 public record ProductionHistoryRow(int Id, DateTime Date, string Item, string Grade, string Colour,
     decimal Quantity, bool IsReversal, string CreatedBy);
 
-/// <summary>An accessory-receipt history row with the id needed to reverse it.</summary>
-public record AccessoryHistoryRow(int Id, DateTime Date, string Accessory,
+/// <summary>
+/// An accessory-receipt history row with the id needed to reverse it. <paramref name="Brand"/> is
+/// "-" for an ordinary receipt into the shared unpacked pool, or the brand name when it was
+/// received directly into that brand's packed stock.
+/// </summary>
+public record AccessoryHistoryRow(int Id, DateTime Date, string Accessory, string Brand,
     decimal Quantity, bool IsReversal, string CreatedBy);
 
 /// <summary>
@@ -42,6 +46,8 @@ public partial class ProductionViewModel : ViewModelBase
     public ObservableCollection<Colour> Colours { get; } = new();
     public ObservableCollection<Accessory> Accessories { get; } = new();
     public ObservableCollection<RawMaterial> RawMaterials { get; } = new();
+    /// <summary>Active brands only, offered when receiving accessories already packed under one.</summary>
+    public ObservableCollection<Brand> Brands { get; } = new();
     public ObservableCollection<ProductionHistoryRow> History { get; } = new();
     public ObservableCollection<AccessoryHistoryRow> AccessoryHistory { get; } = new();
     public ObservableCollection<MovementHistoryRow> GreenHistory { get; } = new();
@@ -60,6 +66,12 @@ public partial class ProductionViewModel : ViewModelBase
     [ObservableProperty] private DateTime _accDate = DateTime.Today;
     [ObservableProperty] private string _accQty = string.Empty;
     [ObservableProperty] private string _accRemarks = string.Empty;
+    /// <summary>
+    /// Left blank for an ordinary receipt into the shared unpacked pool. Set it when the goods
+    /// arrived already packaged under a brand — an outside import, for instance — so the receipt
+    /// lands directly on that brand's packed stock instead of needing a separate trip to Packing.
+    /// </summary>
+    [ObservableProperty] private Brand? _accBrand;
 
     // Green ware form
     [ObservableProperty] private Item? _greenItem;
@@ -85,6 +97,7 @@ public partial class ProductionViewModel : ViewModelBase
         Fill(Colours, scope.Db.Colours.Where(x => x.IsActive).OrderBy(x => x.Name));
         Fill(Accessories, scope.Db.Accessories.Where(x => x.IsActive).OrderBy(x => x.Name));
         Fill(RawMaterials, scope.Db.RawMaterials.Where(x => x.IsActive).OrderBy(x => x.Name));
+        Fill(Brands, scope.Db.Brands.Where(x => x.IsActive).OrderBy(x => x.Name));
         LoadHistory(scope);
     }
 
@@ -107,9 +120,12 @@ public partial class ProductionViewModel : ViewModelBase
         Fill(AccessoryHistory,
             (from e in scope.Db.AccessoryReceipts
              join a in scope.Db.Accessories on e.AccessoryId equals a.Id
+             join b in scope.Db.Brands on e.BrandId equals (int?)b.Id into brandJoin
+             from b in brandJoin.DefaultIfEmpty()
              where !e.IsReversal && !scope.Db.AccessoryReceipts.Any(r => r.ReversesEntryId == e.Id)
              orderby e.Id descending
-             select new AccessoryHistoryRow(e.Id, e.Date, a.Name, e.Quantity, e.IsReversal, e.CreatedBy))
+             select new AccessoryHistoryRow(e.Id, e.Date, a.Name, b == null ? "-" : b.Name,
+                 e.Quantity, e.IsReversal, e.CreatedBy))
             .Take(100).ToList());
 
         Fill(GreenHistory,
@@ -161,7 +177,8 @@ public partial class ProductionViewModel : ViewModelBase
     {
         if (row is null) return;
         if (row.IsReversal) { _dialogs.Error("A reversal entry cannot be reversed."); return; }
-        if (!_dialogs.Confirm($"Reverse receipt of {row.Quantity:0.###} — {row.Accessory}?"))
+        var suffix = row.Brand == "-" ? "" : $" ({row.Brand})";
+        if (!_dialogs.Confirm($"Reverse receipt of {row.Quantity:0.###} — {row.Accessory}{suffix}?"))
             return;
         Run(scope => { scope.AccessoryReceipts.Reverse(row.Id); _dialogs.Info("Receipt reversed."); });
     }
@@ -193,13 +210,20 @@ public partial class ProductionViewModel : ViewModelBase
     {
         if (AccItem is null) { _dialogs.Error("Select an accessory."); return; }
         if (!TryQty(AccQty, out var qty)) return;
+        var brandId = AccBrand?.Id;
+        var brandName = AccBrand?.Name;
         Run(scope =>
         {
-            scope.AccessoryReceipts.Post(new AccessoryReceiptInput(AccDate, AccItem.Id, qty, NullIfBlank(AccRemarks)));
-            _dialogs.Info($"Received {qty:0.###} {AccItem.Name}.");
+            scope.AccessoryReceipts.Post(new AccessoryReceiptInput(AccDate, AccItem.Id, qty, NullIfBlank(AccRemarks), brandId));
+            _dialogs.Info(brandName is null
+                ? $"Received {qty:0.###} {AccItem.Name}."
+                : $"Received {qty:0.###} {AccItem.Name} and packed it under {brandName}.");
             AccQty = string.Empty; AccRemarks = string.Empty;
         });
     }
+
+    [RelayCommand]
+    private void ClearAccBrand() => AccBrand = null;
 
     [RelayCommand]
     private void PostGreen()
