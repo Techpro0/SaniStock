@@ -35,7 +35,6 @@
                      brand list is master data that changes at runtime. -->
                 <DataGrid x:Name="FinishedGrid" ItemsSource="{Binding Finished}" Margin="0,10,0,0">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Code" Binding="{Binding ItemCode}" Width="Auto" />
                         <DataGridTextColumn Header="Item" Binding="{Binding ItemName}" Width="*" />
                         <DataGridTextColumn Header="Grade" Binding="{Binding Grade}" Width="Auto" />
                         <DataGridTextColumn Header="Colour" Binding="{Binding Colour}" Width="Auto" />
@@ -61,7 +60,6 @@
                      code-behind insert one Packed column per brand, right after "Not Packed". -->
                 <DataGrid x:Name="AccessoryGrid" ItemsSource="{Binding Accessories}" Margin="0,10,0,0">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Code" Binding="{Binding AccessoryCode}" Width="Auto" />
                         <DataGridTextColumn Header="Accessory" Binding="{Binding AccessoryName}" Width="*" />
                         <DataGridTextColumn Header="Not Packed" Binding="{Binding RawOnHand, StringFormat={}{0:0.###}}" Width="100" />
                         <DataGridTextColumn Header="Packed Total" Binding="{Binding PackedOnHand, StringFormat={}{0:0.###}}" Width="100" />

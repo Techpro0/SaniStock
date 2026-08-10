@@ -20,7 +20,6 @@
                     </StackPanel>
                     <DataGrid ItemsSource="{Binding StockRows}">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Code" Binding="{Binding ItemCode}" Width="Auto" />
                             <DataGridTextColumn Header="Item" Binding="{Binding ItemName}" Width="*" />
                             <DataGridTextColumn Header="Grade" Binding="{Binding Grade}" Width="Auto" />
                             <DataGridTextColumn Header="Colour" Binding="{Binding Colour}" Width="Auto" />
@@ -41,7 +40,6 @@
                     </StackPanel>
                     <DataGrid ItemsSource="{Binding ShortfallRows}">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Code" Binding="{Binding ItemCode}" Width="Auto" />
                             <DataGridTextColumn Header="Item" Binding="{Binding ItemName}" Width="*" />
                             <DataGridTextColumn Header="Grade" Binding="{Binding Grade}" Width="Auto" />
                             <DataGridTextColumn Header="Colour" Binding="{Binding Colour}" Width="Auto" />
@@ -71,7 +69,6 @@
                     <DataGrid ItemsSource="{Binding ProductionRows}">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Date" Binding="{Binding Date, StringFormat=dd-MMM-yyyy}" Width="Auto" />
-                            <DataGridTextColumn Header="Code" Binding="{Binding ItemCode}" Width="Auto" />
                             <DataGridTextColumn Header="Item" Binding="{Binding ItemName}" Width="*" />
                             <DataGridTextColumn Header="Grade" Binding="{Binding Grade}" Width="Auto" />
                             <DataGridTextColumn Header="Colour" Binding="{Binding Colour}" Width="Auto" />
