@@ -71,7 +71,9 @@ public class MasterDataService
     // ---- Brand ----
     public Brand SaveBrand(Brand b)
     {
-        b.Code = Require(b.Code, "Brand code");
+        b.Code = string.IsNullOrWhiteSpace(b.Code)
+            ? GenerateNextCode("BR-", _db.Brands.Select(x => x.Code).ToList())
+            : Require(b.Code, "Brand code");
         b.Name = Require(b.Name, "Brand name");
         if (_db.Brands.Any(x => x.Code == b.Code && x.Id != b.Id))
             throw new DomainException($"Brand code '{b.Code}' already exists.");

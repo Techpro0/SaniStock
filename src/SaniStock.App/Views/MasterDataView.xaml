@@ -78,7 +78,6 @@
                         <ContentControl DockPanel.Dock="Top" ContentTemplate="{StaticResource ShowDeletedToggle}" Content="{Binding}" />
                         <DataGrid ItemsSource="{Binding Items}">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="Auto" />
                                 <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
                                 <DataGridTemplateColumn Header="Status" Width="Auto" CellTemplate="{StaticResource StatusCell}" />
                                 <DataGridTemplateColumn Header="Actions" Width="150" CellTemplate="{StaticResource RowActionsCell}" />
@@ -111,7 +110,6 @@
                         <ContentControl DockPanel.Dock="Top" ContentTemplate="{StaticResource ShowDeletedToggle}" Content="{Binding}" />
                         <DataGrid ItemsSource="{Binding Items}">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="Auto" />
                                 <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
                                 <DataGridTextColumn Header="Type" Binding="{Binding ProductType.Name}" Width="Auto" />
                                 <DataGridTextColumn Header="UoM" Binding="{Binding UnitOfMeasure}" Width="Auto" />
@@ -262,7 +260,6 @@
                         <ContentControl DockPanel.Dock="Top" ContentTemplate="{StaticResource ShowDeletedToggle}" Content="{Binding}" />
                         <DataGrid ItemsSource="{Binding Items}">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="Auto" />
                                 <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
                                 <DataGridTemplateColumn Header="Status" Width="Auto" CellTemplate="{StaticResource StatusCell}" />
                                 <DataGridTemplateColumn Header="Actions" Width="150" CellTemplate="{StaticResource RowActionsCell}" />
@@ -272,8 +269,6 @@
                     <Border Grid.Column="1" Style="{StaticResource Card}" VerticalAlignment="Top">
                         <StackPanel>
                             <TextBlock Text="Edit Brand" Style="{StaticResource H2}" />
-                            <TextBlock Text="Code" Style="{StaticResource FieldLabel}" />
-                            <TextBox Text="{Binding Editing.Code, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
                             <TextBlock Text="Name" Style="{StaticResource FieldLabel}" />
                             <TextBox Text="{Binding Editing.Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
                             <CheckBox Content="Active" IsChecked="{Binding Editing.IsActive}" />
@@ -299,7 +294,6 @@
                         <ContentControl DockPanel.Dock="Top" ContentTemplate="{StaticResource ShowDeletedToggle}" Content="{Binding}" />
                         <DataGrid ItemsSource="{Binding Items}">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="Auto" />
                                 <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
                                 <DataGridTextColumn Header="UoM" Binding="{Binding UnitOfMeasure}" Width="Auto" />
                                 <DataGridTemplateColumn Header="Status" Width="Auto" CellTemplate="{StaticResource StatusCell}" />

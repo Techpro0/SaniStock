@@ -8,15 +8,15 @@ namespace SaniStock.App.Views;
 public partial class StockView : UserControl
 {
     /// <summary>
-    /// Where the generated brand columns go: straight after Code / Item / Grade / Colour /
-    /// Not Packed, and before the Packed Total / In Stock / Booked / Free block. Keeping the
-    /// per-brand detail next to the shared unpacked number is what makes the row readable —
-    /// "not packed yet" then "packed, by brand" then the totals.
+    /// Where the generated brand columns go: straight after Item / Grade / Colour / Not Packed,
+    /// and before the Packed Total / In Stock / Booked / Free block. Keeping the per-brand detail
+    /// next to the shared unpacked number is what makes the row readable — "not packed yet" then
+    /// "packed, by brand" then the totals.
     /// </summary>
-    private const int BrandColumnStart = 5;
+    private const int BrandColumnStart = 4;
 
-    /// <summary>Same idea for the Accessories grid: after Code / Accessory / Not Packed.</summary>
-    private const int AccessoryBrandColumnStart = 3;
+    /// <summary>Same idea for the Accessories grid: after Accessory / Not Packed.</summary>
+    private const int AccessoryBrandColumnStart = 2;
 
     private StockViewModel? _boundViewModel;
 
