@@ -26,7 +26,12 @@
                         <Button Content="⟳ Refresh" Command="{Binding LoadCommand}" Style="{StaticResource SecondaryButton}"
                                 DockPanel.Dock="Right" HorizontalAlignment="Right" Padding="10,4" />
                     </DockPanel>
-                    <DataGrid ItemsSource="{Binding OpenOrders}" SelectedItem="{Binding SelectedOrder}">
+                    <!-- No two-way SelectedItem binding: the grid's global style uses cell-level
+                         selection (for single-value clipboard copy), so a plain click only selects
+                         a cell, not the row, and SelectedItem never updates. CurrentCell tracks the
+                         clicked cell regardless of selection unit, so we read the order from it. -->
+                    <DataGrid x:Name="OpenOrdersGrid" ItemsSource="{Binding OpenOrders}"
+                              SelectedCellsChanged="OpenOrdersGrid_SelectedCellsChanged">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Order No" Binding="{Binding OrderNo}" Width="*" />
                             <DataGridTextColumn Header="Customer" Binding="{Binding Party}" Width="*" />

@@ -64,7 +64,9 @@
             <Border Style="{StaticResource Card}" Margin="0,0,9,0">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Text="Make These Next" Style="{StaticResource H2}" />
-                    <DataGrid ItemsSource="{Binding TopShortfalls}">
+                    <DataGrid ItemsSource="{Binding TopShortfalls}"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                              ScrollViewer.CanContentScroll="True">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Item" Binding="{Binding ItemName}" Width="*" />
                             <DataGridTextColumn Header="Grade" Binding="{Binding Grade}" Width="Auto" />
@@ -78,7 +80,9 @@
             <Border Grid.Column="1" Style="{StaticResource Card}" Margin="9,0,0,0">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Text="Low Stock" Style="{StaticResource H2}" />
-                    <DataGrid ItemsSource="{Binding LowStock}">
+                    <DataGrid ItemsSource="{Binding LowStock}"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                              ScrollViewer.CanContentScroll="True">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Item" Binding="{Binding ItemName}" Width="*" />
                             <DataGridTextColumn Header="Grade" Binding="{Binding Grade}" Width="Auto" />
