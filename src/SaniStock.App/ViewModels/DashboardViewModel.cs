@@ -49,13 +49,13 @@ public partial class DashboardViewModel : ViewModelBase
         OpenOrders = d.OpenOrderCount;
 
         TopShortfalls.Clear();
-        foreach (var s in scope.Reports.GetShortfall().Take(12))
+        foreach (var s in scope.Reports.GetShortfall())
             TopShortfalls.Add(s);
 
         LowStock.Clear();
         foreach (var s in scope.Reports.GetFinishedStock().Rows
                      .Where(r => r.OnHand > 0 && r.OnHand <= scope.Reports.LowStockThreshold)
-                     .OrderBy(r => r.OnHand).Take(12))
+                     .OrderBy(r => r.OnHand))
             LowStock.Add(s);
     }
 }
